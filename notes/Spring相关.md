@@ -1,17 +1,3 @@
-## MyBatis
-
-### 一/二级缓存
-
-### 常用增删改查
-
-### 原理
-
-## Jedis
-
-## HttpClient
-
-
-
 # 手写Spring核心类
 
 核心Spring IOC、DI、MVC
@@ -51,10 +37,6 @@ Bean定义
 ### MVC有9大组件
 
 #### HandlerMapping
-
-![image-20191209202011498](pic/image-20191209202011498.png)
-
-![image-20191209203147795](pic/image-20191209203147795.png)
 
 ## 面试题
 
@@ -133,28 +115,9 @@ Bean定义
 
 ![image-20191209202011498](pic/image-20191209202011498.png)
 
-## Spring
 
-### Bean
 
-### AOP
-
-​	切面编程
-
-### IOC
-
-​	控制翻转
-
-### 事务机制
-
-- 事务抽象
-  - PlatformTransactionManager 提供事务的管理接口
-  - TransactionDefinition 事务的定义
-  - TransactionStatus 事务运行中状态
-- 事务传播
-- 事务隔离
-
-## Spring Boot
+# Spring Boot
 
 ### 常用注解
 
@@ -172,38 +135,20 @@ Bean定义
 - **@Value**：读取配置文件中属性
 - **未完待续...**
 
-## Spring Cloud
+# Spring Cloud
 
-## Spring Zuul
+# Spring Zuul
 
-## Spring Data
+# Spring Data
 
-## Spring Gateway
+# Spring Gateway
 
-## Spring Pager
+# Spring Pager
 
-## ...
+# ...
 
 
 
-## RestFul风格
+# RestFul风格
 
 ​	GET、PUT、POST、DELETE以及PATCH
-
-## 日志框架
-
-### logback
-
-### Sl4g
-
-## Hystrix
-
-​	熔断
-
-## Guava
-
-​	本地缓存
-
-## Swagger
-
-​	接口规范辅助工具
