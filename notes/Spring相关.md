@@ -1,4 +1,10 @@
-# 手写Spring核心类
+# Spring
+
+> 基于Spring 5.2.2
+
+
+
+# Spring核心类
 
 核心Spring IOC、DI、MVC
 
@@ -38,76 +44,65 @@ Bean定义
 
 #### HandlerMapping
 
-## 面试题
-
-- Spring中的Bean是线程安全的吗？
-
-   Bean在IOC容器，容器是从扫描到的，扫描到的是从配置文件，配置文件中Bean是自己写的
-
-  Spring什么都没给干  只是new了一下，实际问的是IOC原理
-
-- Spring是怎么new的？
-
-- Spring中的Bean是如何被回收的
-
-  看bean的作用域
-
-  GC检测对象是否可达（是不是null，非null就可达）
-
-  单例：跟Spring同生同死
-
-  原型：用的时候new出来，完的置空回收
-
 ## 问题
 
 ### 第一天
 
-1. ~~请用自己的语言描述SpringIOC、DI、MVC的基本执行原理。~~ 
+1、请用自己的语言描述SpringIOC、DI、MVC的基本执行原理。 
 
-   1. ~~init初始化读配置~~
-   2. ~~找到扫描包路径~~
-   3. ~~根据扫描包路径找到class类的映射存入IOC容器~~
-   4. ~~DI依赖注入，对注解属性赋值~~
-   5. ~~初始化Mapping路径~~
-   6. ~~启动后调用doGet、doPost从ioc中获取对应映射，静态代理调用方法执行，如有异常抛出~~
+答：Spring IOC、DI、MVC的执行主要分为三个阶段：     
 
-2. ~~Spring中的Bean是线程安全的吗？为什么~~
+ ①配置阶段：主要完成web.xml和Anntation的配置    
 
-   ~~https://www.jianshu.com/p/2d7c65641b42~~
+  ②初始化阶段：完成IOC容器初始化、DI自动注入和HandlerMapping的初始化。    
 
-   ~~https://blog.csdn.net/qq_29645505/article/details/88432001~~
+  ③运行阶段：根据用户请求的URL调用对应的Method，将结果打印到浏览器。      
 
-   ~~需要看Bean的作用域，Bean分几个作用域：~~
+详细过程如下图所示：       
 
-   ~~1、单例：Spring提供的注解形式注入的Bean（即自己写的），所有线程共享一个Bean，会出现资源竞争，不过是线程安全的。Spring官方的Bean是通过ThreadLocal空间换时间解决线程安全问题~~
+2、Spring中的Bean是线程安全的吗？为什么？ 
 
-   ~~2、原型：每次创建一个新对象，线程之间不存在Bean共享，不会有线程安全问题~~
+https://www.jianshu.com/p/2d7c65641b42
 
-1、请用自己的语言描述SpringIOC、DI、MVC的基本执行原理。 答：Spring IOC、DI、MVC的执行主要分为三个阶段：      ①配置阶段：主要完成web.xml和Anntation的配置      ②初始化阶段：完成IOC容器初始化、DI自动注入和HandlerMapping的初始化。      ③运行阶段：根据用户请求的URL调用对应的Method，将结果打印到浏览器。      详细过程如下图所示：       
+https://blog.csdn.net/qq_29645505/article/details/88432001
 
-2、Spring中的Bean是线程安全的吗？为什么？ 答：Spring中的Bean是否线程安全和Spring无关。因为Spring只承担了创建和管理Bean的职责，并没有对Bean进行任何修改。
+答：Spring中的Bean是否线程安全和Spring无关。因为Spring只承担了创建和管理Bean的职责，并没有对Bean进行任何修改。
 
 ### 第二天
 
-1、请用自己的语言详细描述Spring IOC和DI的工作流程。 答：Spring IOC的基本流程:     ①读取配置文件。     ②解析配置文件，并封装成BeanDefinition。     ③把BeanDefinition对应的实例放入到容器进行缓存。      Spring DI的基本流程：      ①循环读取BeanDefinition的缓存信息。      ②调用getBean()方法创建对象实例。      ③将创建好的对象实例包装为BeanWrapper对象。      ④将BeanWrapper对象缓存到IOC容器。      ⑤循环IOC容器执行以来注入。 
+1、请用自己的语言详细描述Spring IOC和DI的工作流程。 
 
-2、BeanDefinition、BeanWrapper、ApplicationContext分别是什么作用？ 答： BeanDefinition 保存每个bean配置的解析结果；        BeanWrapper 保存原始对象和和原始对象的class；        ApplicationContext  Spring中最核心的IOC工厂，也是Spring的主入口。        其中BeanDefinition、BeanWrapper和ApplicationContext三者关系如下图所示：
+答：Spring IOC的基本流程:    
+
+①读取配置文件。     
+
+②解析配置文件，并封装成BeanDefinition。    
+
+③把BeanDefinition对应的实例放入到容器进行缓存。      
+
+Spring DI的基本流程：      
+
+①循环读取BeanDefinition的缓存信息。      
+
+②调用getBean()方法创建对象实例。     
+
+③将创建好的对象实例包装为BeanWrapper对象。      
+
+④将BeanWrapper对象缓存到IOC容器。      ⑤循环IOC容器执行以来注入。 
+
+2、BeanDefinition、BeanWrapper、ApplicationContext分别是什么作用？ 
+
+答： 
+
+BeanDefinition 保存每个bean配置的解析结果；        
+
+BeanWrapper 保存原始对象和和原始对象的class；        
+
+ApplicationContext  Spring中最核心的IOC工厂，也是Spring的主入口。        
+
+其中BeanDefinition、BeanWrapper和ApplicationContext三者关系如下图所示：
 
 ![image-20191208204818418](pic/image-20191208204818418.png)
-
-~~1、请用自己的语言详细描述Spring IOC和DI的工作流程。~~
-
-​	~~IOC:	DispatchServerlet的init方法调用ApplicationContext加载配置->BeanDefinitionReader扫描xml、注解等Bean注入到BeanDefinition->通过BeanWrapper包装下注入到IOC容器~~
-
-~~DI：对有定义相关注解的属性通过IOC容器中拿到对应Bean进行复制~~
-
- ~~2、BeanDefinition、BeanWrapper、ApplcationContext分别是什么作用？~~
-
-~~BeanDefinition：xml文件的一些标签~~
-
-~~BeanWrapper：为Bean提供一些操作方法来改变Bean的属性~~
-
-~~ApplcationContext：只知道是入口，我也在查一查资料~~
 
 ### 第三天
 
