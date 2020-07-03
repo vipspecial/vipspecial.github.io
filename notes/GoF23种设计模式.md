@@ -105,3 +105,84 @@
 
 ![image-20200304204613823](pic/image-20200304204613823.png)
 
+
+
+
+
+# 动态代理
+
+## JDK代理
+
+### 定义
+
+利用Java的反射技术(Java Reflection)，在运行时创建一个实现某些给定接口的新类（也称“动态代理类”）及其实例（对象）,代理的是接口(Interfaces)，不是类(Class)，也不是抽象类。在运行时才知道具体的实现，spring aop就是此原理。
+
+```java
+   public static Object newProxyInstance(ClassLoader loader,
+                                          Class<?>[] interfaces,
+                                          InvocationHandler h)
+        throws IllegalArgumentException
+```
+
+- loader：用哪个加载器去加载代理对象
+- interfaces：动态代理类需要实现的接口
+- h：动态代理方法再执行时，会调用h里面的invoke方法执行
+
+### 实现
+
+**要扩展的类**
+
+```java
+
+public class Car implements IVehical {
+    public void run() {
+        System.out.println("Car会跑");
+    }
+}
+```
+
+**调用处理类InvocationHandler**
+
+```java
+public class VehicalInvacationHandler implements InvocationHandler {
+ 
+    private final IVehical vehical;
+    public VehicalInvacationHandler(IVehical vehical){
+        this.vehical = vehical;
+    }
+ 
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        System.out.println("---------before-------");
+        Object invoke = method.invoke(vehical, args);
+        System.out.println("---------after-------");
+ 
+        return invoke;
+    }
+}
+```
+
+- invoke三个参数：
+- proxy：就是代理对象，newProxyInstance方法的返回对象
+- method：调用的方法
+- args: 方法中的参数
+
+
+
+**测试**
+
+```java
+ public static void main(String[] args) {
+  IVehical car = new Car();
+ 
+ IVehical vehical = (IVehical)Proxy.newProxyInstance(car.getClass().getClassLoader(), Car.class.getInterfaces(), new VehicalInvacationHandler(car));
+        vehical.run();
+}
+```
+
+### 原理
+
+​	待补充
+
+
+
+## Cglib

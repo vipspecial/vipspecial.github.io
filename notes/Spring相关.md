@@ -2,6 +2,25 @@
 
 > 基于Spring 5.2.2
 
+## 常用注解
+
+注入bean
+
+| 注解                      | 应用         |
+| ------------------------- | ------------ |
+| @Bean                     | 注解注入bean |
+| @ConditionalOnBean        |              |
+| @ConditionalOnClass       |              |
+| @AutoConfigureAfter       |              |
+| @ConditionalOnMissingBean |              |
+|                           |              |
+|                           |              |
+|                           |              |
+
+
+
+
+
 
 
 # Spring核心类
@@ -109,6 +128,15 @@ ApplicationContext  Spring中最核心的IOC工厂，也是Spring的主入口。
 1、如果不查百度你能默写出Spring MVC九大组件，我都给加分。
 
 ![image-20191209202011498](pic/image-20191209202011498.png)
+
+
+
+### FactoryBean和BeanFactory
+
+FactoryBean和BeanFactory虽然长的很像，但是他们的作用确实完全不像。这里你可以想象一下，你会在什么样的场景下使用FactoryBean这个接口？FactoryBean是一个工厂Bean，可以生成某一个类型Bean实例，它最大的一个作用是：可以让我们自定义Bean的创建过程。BeanFactory是Spring容器中的一个基本类也是很重要的一个类，在BeanFactory中可以创建和管理Spring容器中的Bean，它对于Bean的创建有一个统一的流程
+————————————————
+版权声明：本文为CSDN博主「木叶之荣」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/zknxx/article/details/79572387
 
 
 
