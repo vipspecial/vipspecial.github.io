@@ -2,7 +2,31 @@
 
 # Mybatis
 
-缓存
+版本：mybatis 3.4.5
+
+## 目录结构
+
+![image-20200703152406720](pic/image-20200703152406720.png)
+
+- annotations：注解
+- builder：参数构建
+- cache：缓存，一级缓存，二级缓存等
+- exceptions：异常处理
+- executor：核心，增删改查实现类
+- io：读取文件api、封装mybatis自身所需的classLoader
+- jdbc：处理sql语句，拼装等
+- logging：对Log4j、Log4j2、slf4j 、stdout（控制台）等适配
+- mapping：
+- plugin：插件
+- reflection：反射相关
+- session：
+- transaction：事务相关
+- type：不同数据库类型返回处理
+- mybatis.sharding：分库分表处理
+
+
+
+## 缓存
 
 PerpetualCache基础类
 
