@@ -130,9 +130,19 @@ Invocation：对被代理对象的封装
 
 ![image-20200705134057067](pic/image-20200705134057067.png)
 
+**扩展点**：
+
+- FactoryBean.getObject() 创建一个Bean
+- InitializingBean.afterPropertiesSet() 加载配置后事件
+- ApplicationListener.onApplicationEvent() 监听事件
+
 利用Spring的扩展点加入mybatis-spring
 
+入口SqlSessionFactoryBean
 
+FactoryBean 创建Bean，自定义实例化Bean 
+
+afterPropertiesSet()创建
 
 
 
