@@ -160,6 +160,10 @@ FactoryBean和BeanFactory虽然长的很像，但是他们的作用确实完全�
 
 # Spring Cloud
 
+Ribbon和Fegin
+
+LoadBalancerAutoConfiguration自动装配类实现Ribbon
+
 # Spring Zuul
 
 # Spring Data

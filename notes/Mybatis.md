@@ -67,3 +67,87 @@ PerpetualCache基础类
 二级缓存是和事务绑定的，不执行commit是不会进入到Cache中
 
 一、二级缓存失效条件：增删改后
+
+
+
+
+
+## 源码阅读
+
+### 工作流程
+
+https://www.processon.com/view/link/5f0020eb1e0853263757abc3
+
+### 源码
+
+XMLConfigBuilder是用来解析全局配置文件Configuration标签
+
+```java
+  SqlSessionManager 入口类
+  sqlSessionFactory.openSession() 打开会话
+  MappedStatement mapper.xml上sql属性
+  MapperAnnotationBuilder.parse  解析mapper接口中注解
+  MapperProxyFactory 解析后的接口放到这个代理工厂中
+    MappeerPorxy
+```
+
+默认是创建DefaultSqlSession，它是线程不安全的，每次都需要创建一个新的session
+
+Spring如何保证线程池线程安全
+
+Mybatis动态代理与jdk动态代理的区别是m动态代理没有实现类
+
+### 插件
+
+自定义插件需要实现Interceptor接口
+
+层层拦截需要使用责任链模式
+
+#### 关键对象总结
+
+nterceptor接口：自定义拦截器（实现类）
+
+InterceptorChain：存放插件的容器
+
+Plugin：h对象，提供创建代理类的方法
+
+Invocation：对被代理对象的封装
+
+##### 插件能干啥
+
+- 水平分表
+- 权限控制
+- 数据加解密，脱敏
+
+
+
+### Mybatis和Spring整合
+
+######  为什么要整合Spring？
+
+###### 能带来什么好处？
+
+![image-20200705134057067](pic/image-20200705134057067.png)
+
+利用Spring的扩展点加入mybatis-spring
+
+
+
+
+
+### 涉及到的设计模式
+
+工厂模式
+
+建造者模式
+
+动态代理
+
+责任链模式
+
+装饰器模式
+
+策略模式 
+
+**具体例子待补充**
+
