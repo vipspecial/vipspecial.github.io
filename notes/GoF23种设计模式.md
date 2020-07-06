@@ -186,3 +186,97 @@ public class VehicalInvacationHandler implements InvocationHandler {
 
 
 ## Cglib
+
+
+
+# 建造者模式
+
+## 场景
+
+当一个类的构造函数参数个数超过4个，而且这些参数有些是可选的参数，考虑使用构造者模式。
+
+## 实现
+
+```java
+public class TestDTO implements Serializable {
+    private Long id;
+    private String name;
+    private Long parentId;
+    private String parentName;
+
+    public TestDTO(Builder builder) {
+        this.id = builder.id;
+        this.name = builder.name;
+        this.parentId = builder.parentId;
+        this.parentName = builder.parentName;
+    }
+
+    public static class Builder {
+
+        private final Long id;//必填
+
+        private final String name; //必填
+
+        private Long parentId;//选填
+
+        private String parentName;//选填
+
+        public Builder(Long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        public Builder setParentId(Long parentId) {
+            this.parentId = parentId;
+            return this;
+        }
+
+        public Builder setParentName(String parentName) {
+            this.parentName = parentName;
+            return this;
+        }
+
+        public TestDTO build() {
+            return new TestDTO(this);
+        }
+    }
+	/*****************省略 set & get ***************/
+    @Override
+    public String toString() {
+        return "TestDTO{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", parentId=" + parentId +
+                ", parentName='" + parentName + '\'' +
+                '}';
+    }
+}
+```
+
+**测试**
+
+```java
+public static void main(String[] args) {
+        TestDTO test = new TestDTO.Builder(123L,"name").build();
+        System.out.println(test.toString());
+        test = new TestDTO.Builder(12333L,"我叫Tom").setParentId(456L).setParentName("家长名称").build();
+        System.out.println(test.toString());
+    }
+```
+
+**输出**
+
+```java
+TestDTO{id=123, name='name', parentId=null, parentName='null'}
+TestDTO{id=12333, name='我叫Tom', parentId=456, parentName='家长名称'}
+```
+
+**案例**
+
+Lombok的@Builder注解即是实现建造者模式
+
+
+
+**拓展**
+
+https://zhuanlan.zhihu.com/p/58093669

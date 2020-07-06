@@ -67,3 +67,7 @@ PerpetualCache基础类
 二级缓存是和事务绑定的，不执行commit是不会进入到Cache中
 
 一、二级缓存失效条件：增删改后
+
+## 涉及涉及模式
+
+https://blog.csdn.net/star1210644725/article/details/91882685
