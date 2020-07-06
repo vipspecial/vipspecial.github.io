@@ -68,6 +68,7 @@ PerpetualCache基础类
 
 一、二级缓存失效条件：增删改后
 
+<<<<<<< HEAD
 
 
 
@@ -151,3 +152,8 @@ Invocation：对被代理对象的封装
 
 **具体例子待补充**
 
+=======
+## 涉及涉及模式
+
+https://blog.csdn.net/star1210644725/article/details/91882685
+>>>>>>> 743547efd237988a4e0f15eb3fe75632e3e64dc2
