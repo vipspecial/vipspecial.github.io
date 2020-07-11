@@ -2,6 +2,8 @@
 
 # Mybatis
 
+[官网资料](https://mybatis.org/mybatis-3/zh/index.html)
+
 版本：mybatis 3.4.5
 
 ## 目录结构
@@ -124,6 +126,8 @@ Invocation：对被代理对象的封装
 
 ### Mybatis和Spring整合
 
+[官网资料](http://mybatis.org/spring/zh/sqlsession.html)
+
 ######  为什么要整合Spring？
 
 ###### 能带来什么好处？
@@ -146,23 +150,76 @@ afterPropertiesSet()创建
 
 
 
+
+
+ 1、SqlSessionFactory是什么时候创建的？
+
+配置一个标签或加一个Mapper就会有SqlSessionFactory
+
+2、SqlSession怎么获取？
+
+DefaultSqlSession是线程不安全的，所以使用了一个SqlSessionTemplate替代它，通过jdk动态代理每次去创建sqlSession实现线程安全。或者通过继承SqlSessionDaoSupport类实现线程创建和线程安全
+
+即动态代理每次生成一个新的sqlSession对象
+
+3、为什么不getMapper获取代理类？还用MapperProxy吗？
+
+在注册IOC容器时候替换成了代理对象，注入Bean是注入MapperFactoryBean它继承了SqlSessionDaoSupport所以
+
+##### 关键对象
+
+- SqlSessionTemplate（为了解决线程安全问题）
+
+- SqlSessionInterceptor（内部类)
+
+  通过代理方式，在每次调用时创建DefaulateSqlSession
+
+- SqlSessionDaoSupport
+
+  为了获取SqlSessionTemplate
+
+- MapperFactoryBean getObject() getMapper()
+
+​	  为了修改Mapper在Spring里的定义
+
+#### 扩展点
+
+可以想一想通过Spring提供的东西做些什么事情
+
+FactoryBean.getObject()
+
+可以在实例化一个Bean对象时候修改定义，比如替换成另外一个对象并且做一些事情，做一些处理
+
+InitializingBean.afterPropertiesSet()
+
+ApplicationListener.onApplicationEvent()
+
+
+
 ### 涉及到的设计模式
 
-工厂模式
+- 工厂模式
 
-建造者模式
+- 建造者模式
 
-动态代理
+- 动态代理
+  - MapperProxy
+  - ProxyFactory
+  - Plugin SqlSessionInterceptor（包含责任链模式）
+  - 自带连接池
+  - 日志的打印（BaseJdbcLogger/ConnectionLogger/PreparedStatementLogger/ResultSetLogger/StatementLogger）
+- 责任链模式
 
-责任链模式
-
-装饰器模式
-
-策略模式 
+- 装饰器模式
+  - CachingExecutor，LRU,FIFO BLOCKING
+- 策略模式 
+- 适配器模式
+  - 日志适配各种第三方组件如 log4j，nologging未直接实现slf4j接口，通过适配器模式调用slf4j接口打印日志
 
 **具体例子待补充**
 
 =======
+
 ## 涉及涉及模式
 
 https://blog.csdn.net/star1210644725/article/details/91882685
