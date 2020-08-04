@@ -18,6 +18,20 @@
 
 https://www.jianshu.com/p/554c138ca0f5
 
+## SPI机制
+
+https://www.cnblogs.com/jy107600/p/11464985.html
+
+### spi能带来的好处：
+
+- 不需要改动源码就可以实现扩展，解耦。
+- 实现扩展对原来的代码几乎没有侵入性。
+- 只需要添加配置就可以实现扩展，符合开闭原则。
+
+### Dubbo SPI机制
+
+http://dubbo.apache.org/zh-cn/blog/introduction-to-dubbo-spi.html
+
 ## 面向对象
 
 ### 继承

@@ -189,7 +189,7 @@ public class VehicalInvacationHandler implements InvocationHandler {
 
 
 
-# 建造者模式
+# 建造者模式(Builder)
 
 ## 场景
 
@@ -280,3 +280,11 @@ Lombok的@Builder注解即是实现建造者模式
 **拓展**
 
 https://zhuanlan.zhihu.com/p/58093669
+
+
+
+# 责任链模式
+
+场景：
+
+https://www.jianshu.com/p/9f7d9775bdda
