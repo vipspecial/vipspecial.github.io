@@ -9,6 +9,7 @@
   - [评测与安全](ai/evaluation.md)
 
 - **SYSTEMS**
+  - [API 链路验证](systems/api-connectivity.md)
   - [RAG Workbench](systems/rag-workbench.md)
   - [Agent Console](systems/agent-console.md)
   - [Evaluation Lab](systems/evaluation-lab.md)

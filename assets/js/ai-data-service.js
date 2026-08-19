@@ -185,9 +185,49 @@
     }, settings)
   }
 
+  function normalizeHealthUrl(value) {
+    var url = new URL(String(value || '').trim())
+    if (!/^https?:$/.test(url.protocol)) throw new Error('API 地址必须使用 HTTP 或 HTTPS')
+    if (url.pathname === '/' || url.pathname === '') url.pathname = '/api/health'
+    url.hash = ''
+    return url.href
+  }
+
+  function checkBackend(value) {
+    var url = normalizeHealthUrl(value)
+    var controller = new AbortController()
+    var timeout = global.setTimeout(function () {
+      controller.abort()
+    }, 10000)
+
+    return global.fetch(url, {
+      headers: {
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    }).then(function (response) {
+      return response.json().catch(function () {
+        return {}
+      }).then(function (payload) {
+        if (!response.ok || !payload.ok) {
+          var error = new Error(payload.error || 'API 返回状态 ' + response.status)
+          error.status = response.status
+          throw error
+        }
+        return {
+          url: url,
+          payload: payload
+        }
+      })
+    }).finally(function () {
+      global.clearTimeout(timeout)
+    })
+  }
+
   global.AiDataService = Object.freeze({
     categories: repositoryCategories,
     getRepositories: getRepositories,
-    getAiNews: getAiNews
+    getAiNews: getAiNews,
+    checkBackend: checkBackend
   })
 })(window)

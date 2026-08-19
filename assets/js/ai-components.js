@@ -2,6 +2,7 @@
   'use strict'
 
   var eventsBound = false
+  var API_URL_STORAGE_KEY = 'ai-lab:backend-health-url'
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -193,6 +194,108 @@
     })
   }
 
+  function apiCheckIdleMarkup() {
+    return [
+      '<div class="api-check__flow">',
+      '<div class="api-node is-ready"><span>01</span><strong>GitHub Pages</strong><small>当前页面已就绪</small></div>',
+      '<i>→</i>',
+      '<div class="api-node"><span>02</span><strong>Vercel API</strong><small>等待验证</small></div>',
+      '<i>→</i>',
+      '<div class="api-node"><span>03</span><strong>MySQL</strong><small>等待验证</small></div>',
+      '</div>'
+    ].join('')
+  }
+
+  function apiCheckLoadingMarkup() {
+    return [
+      '<div class="api-check__flow is-loading">',
+      '<div class="api-node is-ready"><span>01</span><strong>GitHub Pages</strong><small>请求已发出</small></div>',
+      '<i>→</i>',
+      '<div class="api-node is-pending"><span>02</span><strong>Vercel API</strong><small>正在连接</small></div>',
+      '<i>→</i>',
+      '<div class="api-node"><span>03</span><strong>MySQL</strong><small>等待响应</small></div>',
+      '</div>'
+    ].join('')
+  }
+
+  function apiCheckSuccessMarkup(result) {
+    var payload = result.payload
+    var database = payload.database || {}
+    return [
+      '<div class="api-check__flow">',
+      '<div class="api-node is-success"><span>01</span><strong>GitHub Pages</strong><small>跨域请求成功</small></div>',
+      '<i>→</i>',
+      '<div class="api-node is-success"><span>02</span><strong>Vercel API</strong><small>', escapeHtml(payload.latencyMs), ' ms</small></div>',
+      '<i>→</i>',
+      '<div class="api-node is-success"><span>03</span><strong>MySQL</strong><small>', escapeHtml(database.name || '已连接'), '</small></div>',
+      '</div>',
+      '<div class="api-check__message is-success">链路验证成功 · ', escapeHtml(new Date(payload.timestamp).toLocaleString('zh-CN')), '</div>'
+    ].join('')
+  }
+
+  function apiCheckErrorMarkup(error) {
+    var message = error && error.name === 'AbortError'
+      ? '请求超时，请检查 Vercel 服务和数据库网络。'
+      : '连接失败：' + (error.message || '请检查接口地址、部署状态和 CORS 配置。')
+    return [
+      '<div class="api-check__flow">',
+      '<div class="api-node is-ready"><span>01</span><strong>GitHub Pages</strong><small>当前页面正常</small></div>',
+      '<i>→</i>',
+      '<div class="api-node is-error"><span>02</span><strong>Vercel API</strong><small>请求失败</small></div>',
+      '<i>→</i>',
+      '<div class="api-node"><span>03</span><strong>MySQL</strong><small>未能确认</small></div>',
+      '</div>',
+      '<div class="api-check__message is-error">', escapeHtml(message), '</div>'
+    ].join('')
+  }
+
+  function mountApiCheck(element) {
+    if (element.getAttribute('data-mounted') === 'true') return
+    element.setAttribute('data-mounted', 'true')
+
+    var defaultUrl = element.getAttribute('data-default-url') || ''
+    try {
+      defaultUrl = global.localStorage.getItem(API_URL_STORAGE_KEY) || defaultUrl
+    } catch (error) {
+      // The form remains usable when browser storage is unavailable.
+    }
+
+    element.innerHTML = [
+      '<form class="api-check__form" data-api-check-form>',
+      '<label for="api-health-url">Vercel API 地址</label>',
+      '<div><input id="api-health-url" name="url" type="url" required placeholder="https://your-project.vercel.app" value="', escapeHtml(defaultUrl), '">',
+      '<button type="submit">开始验证</button></div>',
+      '<small>可输入 Vercel 项目域名，页面会自动请求 /api/health；也可输入完整接口地址。</small>',
+      '</form>',
+      '<div class="api-check__result" data-api-check-result aria-live="polite">', apiCheckIdleMarkup(), '</div>'
+    ].join('')
+  }
+
+  function runApiCheck(form) {
+    var element = form.closest('[data-api-health-check]')
+    var input = form.querySelector('input[name="url"]')
+    var button = form.querySelector('button[type="submit"]')
+    var resultElement = element && element.querySelector('[data-api-check-result]')
+    if (!element || !input || !resultElement) return
+
+    button.disabled = true
+    resultElement.innerHTML = apiCheckLoadingMarkup()
+
+    global.AiDataService.checkBackend(input.value).then(function (result) {
+      input.value = result.url
+      try {
+        global.localStorage.setItem(API_URL_STORAGE_KEY, result.url)
+      } catch (error) {
+        // A successful request does not depend on browser storage.
+      }
+      if (resultElement.isConnected) resultElement.innerHTML = apiCheckSuccessMarkup(result)
+    }).catch(function (error) {
+      if (resultElement.isConnected) resultElement.innerHTML = apiCheckErrorMarkup(error)
+    }).finally(function () {
+      if (button.isConnected) button.disabled = false
+    })
+  }
+
   function bindEvents() {
     if (eventsBound) return
     eventsBound = true
@@ -219,6 +322,13 @@
         loadExplorer(explorerElement, explorerElement.getAttribute('data-active-category'), true)
       }
     })
+
+    document.addEventListener('submit', function (event) {
+      var form = event.target.closest('[data-api-check-form]')
+      if (!form) return
+      event.preventDefault()
+      runApiCheck(form)
+    })
   }
 
   function mount(root) {
@@ -232,6 +342,9 @@
     })
     root.querySelectorAll('[data-ai-explorer]').forEach(function (element) {
       loadExplorer(element, null, false)
+    })
+    root.querySelectorAll('[data-api-health-check]').forEach(function (element) {
+      mountApiCheck(element)
     })
   }
 
