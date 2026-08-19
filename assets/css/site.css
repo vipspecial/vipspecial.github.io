@@ -166,12 +166,26 @@ body {
 }
 
 .sidebar-toggle {
+  align-items: center;
+  appearance: none;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  bottom: 16px;
+  border-radius: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  box-shadow: 0 8px 22px rgba(39, 78, 65, 0.12);
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  left: max(12px, env(safe-area-inset-left));
+  max-height: 44px;
+  max-width: 44px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  width: 44px;
 }
 
+.sidebar-toggle-button { height: 14px; width: 18px; }
 .sidebar-toggle span { background: var(--mint-strong); }
 .github-corner svg { color: var(--mint); fill: var(--ink); }
 
