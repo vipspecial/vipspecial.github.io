@@ -1,233 +1,103 @@
 (function (global) {
   'use strict'
 
-  var GITHUB_SEARCH_URL = 'https://api.github.com/search/repositories'
-  var HN_SEARCH_URL = 'https://hn.algolia.com/api/v1/search_by_date'
-  var CACHE_PREFIX = 'ai-lab:data:'
-  var DEFAULT_TTL = 15 * 60 * 1000
-  var memoryCache = new Map()
+  var GITHUB_URL = 'https://api.github.com/search/repositories'
+  var BACKEND_URL = 'https://vipspecial-github-io-vercel.vercel.app/api/health'
+  var CACHE_PREFIX = 'ai-systems:'
+  var CACHE_TTL = 15 * 60 * 1000
 
-  var repositoryCategories = Object.freeze({
-    featured: {
-      label: 'AI 热门',
-      query: 'topic:artificial-intelligence stars:>1000'
-    },
-    rag: {
-      label: 'RAG',
-      query: 'rag in:name,description stars:>100'
-    },
-    agents: {
-      label: 'AI Agent',
-      query: 'ai-agent in:name,description stars:>100'
-    },
-    mcp: {
-      label: 'MCP',
-      query: 'mcp server in:name,description stars:>50'
-    },
-    llmops: {
-      label: 'LLMOps',
-      query: 'llmops in:name,description stars:>20'
-    }
+  var categories = Object.freeze({
+    featured: { label: '精选', query: 'topic:artificial-intelligence stars:>3000' },
+    rag: { label: 'RAG', query: 'rag in:name,description stars:>300' },
+    agents: { label: 'Agent', query: 'ai-agent in:name,description stars:>300' },
+    mcp: { label: 'MCP', query: 'mcp-server in:name,description stars:>100' }
   })
 
-  function readStorage(key) {
+  function requestJson(url, timeoutMs) {
+    var controller = new AbortController()
+    var timer = global.setTimeout(function () { controller.abort() }, timeoutMs || 9000)
+
+    return global.fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal
+    }).then(function (response) {
+      return response.json().catch(function () { return {} }).then(function (payload) {
+        if (!response.ok || payload.ok === false) {
+          var error = new Error(payload.error || 'Request failed with status ' + response.status)
+          error.status = response.status
+          error.code = payload.errorCode
+          throw error
+        }
+        return payload
+      })
+    }).finally(function () {
+      global.clearTimeout(timer)
+    })
+  }
+
+  function readCache(key) {
     try {
-      var rawValue = global.localStorage.getItem(CACHE_PREFIX + key)
-      return rawValue ? JSON.parse(rawValue) : null
+      var value = JSON.parse(global.localStorage.getItem(CACHE_PREFIX + key))
+      return value && Date.now() - value.savedAt < CACHE_TTL ? value.data : null
     } catch (error) {
       return null
     }
   }
 
-  function writeStorage(key, value) {
+  function writeCache(key, data) {
     try {
-      global.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(value))
+      global.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data: data, savedAt: Date.now() }))
     } catch (error) {
-      // 内存缓存仍可工作，存储配额或隐私模式不应阻断页面。
+      // Public data still renders when browser storage is unavailable.
     }
-  }
-
-  function getCachedValue(key) {
-    return memoryCache.get(key) || readStorage(key)
-  }
-
-  function saveCachedValue(key, data) {
-    var entry = {
-      data: data,
-      savedAt: Date.now()
-    }
-    memoryCache.set(key, entry)
-    writeStorage(key, entry)
-    return entry
-  }
-
-  function toResult(entry, source, stale) {
-    return {
-      data: entry.data,
-      source: source,
-      stale: Boolean(stale),
-      updatedAt: entry.savedAt
-    }
-  }
-
-  function withCache(key, ttl, loader, options) {
-    var settings = options || {}
-    var cached = getCachedValue(key)
-    var isFresh = cached && Date.now() - cached.savedAt < ttl
-
-    if (!settings.force && isFresh) {
-      return Promise.resolve(toResult(cached, 'cache', false))
-    }
-
-    return loader()
-      .then(function (data) {
-        return toResult(saveCachedValue(key, data), 'network', false)
-      })
-      .catch(function (error) {
-        if (cached) {
-          return toResult(cached, 'cache', true)
-        }
-        throw error
-      })
-  }
-
-  function fetchJson(url, requestOptions) {
-    var controller = new AbortController()
-    var timeout = global.setTimeout(function () {
-      controller.abort()
-    }, 10000)
-    var options = requestOptions || {}
-
-    return global.fetch(url, {
-      headers: options.headers || {},
-      signal: controller.signal
-    }).then(function (response) {
-      if (!response.ok) {
-        var error = new Error('Public API request failed with status ' + response.status)
-        error.status = response.status
-        error.rateLimitReset = response.headers.get('x-ratelimit-reset')
-        throw error
-      }
-      return response.json()
-    }).finally(function () {
-      global.clearTimeout(timeout)
-    })
+    return data
   }
 
   function normalizeRepository(item) {
     return {
       id: item.id,
       name: item.name,
-      fullName: item.full_name,
       owner: item.owner && item.owner.login ? item.owner.login : 'unknown',
       description: item.description || '该项目暂未提供简介。',
       url: item.html_url,
       stars: item.stargazers_count || 0,
-      forks: item.forks_count || 0,
-      language: item.language || '多语言',
-      topics: Array.isArray(item.topics) ? item.topics.slice(0, 3) : [],
+      language: item.language || 'Multi',
       updatedAt: item.updated_at
     }
   }
 
   function getRepositories(categoryName, options) {
-    var category = repositoryCategories[categoryName] || repositoryCategories.featured
     var settings = options || {}
-    var limit = Math.min(Math.max(Number(settings.limit) || 6, 1), 12)
+    var category = categories[categoryName] || categories.featured
+    var limit = Math.min(Math.max(Number(settings.limit) || 3, 1), 12)
+    var cacheKey = 'repos:' + categoryName + ':' + limit
+    var cached = !settings.force && readCache(cacheKey)
+    if (cached) return Promise.resolve(cached)
+
     var params = new URLSearchParams({
       q: category.query,
       sort: 'stars',
       order: 'desc',
       per_page: String(limit)
     })
-    var cacheKey = 'github:' + categoryName + ':' + limit
 
-    return withCache(cacheKey, DEFAULT_TTL, function () {
-      return fetchJson(GITHUB_SEARCH_URL + '?' + params.toString(), {
-        headers: {
-          Accept: 'application/vnd.github+json'
-        }
-      }).then(function (payload) {
-        return (payload.items || []).map(normalizeRepository)
+    return requestJson(GITHUB_URL + '?' + params.toString())
+      .then(function (payload) {
+        return writeCache(cacheKey, (payload.items || []).map(normalizeRepository))
       })
-    }, settings)
   }
 
-  function normalizeNewsItem(item) {
-    return {
-      id: item.objectID,
-      title: item.title || item.story_title || 'Untitled discussion',
-      url: item.url || ('https://news.ycombinator.com/item?id=' + item.objectID),
-      discussionUrl: 'https://news.ycombinator.com/item?id=' + item.objectID,
-      author: item.author || 'anonymous',
-      points: item.points || 0,
-      comments: item.num_comments || 0,
-      createdAt: item.created_at
-    }
-  }
-
-  function getAiNews(options) {
-    var settings = options || {}
-    var limit = Math.min(Math.max(Number(settings.limit) || 6, 1), 12)
-    var ninetyDaysAgo = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000)
-    var params = new URLSearchParams({
-      query: 'AI',
-      tags: 'story',
-      numericFilters: 'created_at_i>' + ninetyDaysAgo,
-      hitsPerPage: String(limit)
-    })
-
-    return withCache('hn:ai:' + limit, 10 * 60 * 1000, function () {
-      return fetchJson(HN_SEARCH_URL + '?' + params.toString())
-        .then(function (payload) {
-          return (payload.hits || []).map(normalizeNewsItem)
-        })
-    }, settings)
-  }
-
-  function normalizeHealthUrl(value) {
-    var url = new URL(String(value || '').trim())
-    if (!/^https?:$/.test(url.protocol)) throw new Error('API 地址必须使用 HTTP 或 HTTPS')
-    if (url.pathname === '/' || url.pathname === '') url.pathname = '/api/health'
-    url.hash = ''
-    return url.href
-  }
-
-  function checkBackend(value) {
-    var url = normalizeHealthUrl(value)
-    var controller = new AbortController()
-    var timeout = global.setTimeout(function () {
-      controller.abort()
-    }, 10000)
-
-    return global.fetch(url, {
-      headers: {
-        Accept: 'application/json'
-      },
-      signal: controller.signal
-    }).then(function (response) {
-      return response.json().catch(function () {
-        return {}
-      }).then(function (payload) {
-        if (!response.ok || !payload.ok) {
-          var error = new Error(payload.error || 'API 返回状态 ' + response.status)
-          error.status = response.status
-          throw error
-        }
-        return {
-          url: url,
-          payload: payload
-        }
-      })
-    }).finally(function () {
-      global.clearTimeout(timeout)
+  function checkBackend() {
+    var startedAt = Date.now()
+    return requestJson(BACKEND_URL, 10000).then(function (payload) {
+      return { payload: payload, roundTripMs: Date.now() - startedAt }
     })
   }
 
   global.AiDataService = Object.freeze({
-    categories: repositoryCategories,
+    backendUrl: BACKEND_URL,
+    categories: categories,
     getRepositories: getRepositories,
-    getAiNews: getAiNews,
     checkBackend: checkBackend
   })
 })(window)

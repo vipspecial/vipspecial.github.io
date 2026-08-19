@@ -4,12 +4,14 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="面向 RAG、AI Agent 与 LLM 应用工程的实践站点">
-  <meta name="theme-color" content="#07111f">
-  <title>AI Engineering Lab</title>
+  <meta name="description" content="聚焦 RAG、AI Agent 与评测系统的 AI 工程门户">
+  <meta name="theme-color" content="#101512">
+  <title>AI Systems Lab</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://api.github.com">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/themes/vue.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/space-grotesk@5.2.8/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/ibm-plex-sans@5.2.8/index.css">
   <link rel="stylesheet" href="assets/css/site.css">
   <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
@@ -18,7 +20,7 @@
   <div id="app">
     <div class="app-loading" role="status">
       <span class="app-loading__mark">AI</span>
-      <span>正在装载工程工作台...</span>
+      <span>正在连接 AI Systems...</span>
     </div>
   </div>
 
@@ -26,7 +28,7 @@
   <script src="assets/js/ai-components.js"></script>
   <script>
     window.$docsify = {
-      name: 'AI Engineering Lab',
+      name: 'AI Systems Lab',
       nameLink: '#/',
       repo: 'vipspecial/vipspecial.github.io',
       homepage: 'README.md',
@@ -41,7 +43,7 @@
       notFoundPage: true,
       search: {
         paths: 'auto',
-        placeholder: '搜索 AI 工程与知识库',
+        placeholder: '搜索 AI 工程',
         noData: '没有找到相关内容',
         depth: 4
       },
@@ -52,8 +54,8 @@
             var year = new Date().getFullYear()
             var footer = [
               '<footer class="site-footer">',
-              '<span>AI Engineering Lab · ', year, '</span>',
-              '<span>静态站点，动态连接开放数据与独立后端服务</span>',
+              '<span>AI Systems Lab · ', year, '</span>',
+              '<span>Built on GitHub Pages · API on Vercel</span>',
               '</footer>'
             ].join('')
             return html + footer
@@ -68,8 +70,6 @@
   <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2/dist/docsify-copy-code.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
 </body>
 </html>
