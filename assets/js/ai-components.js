@@ -53,28 +53,56 @@
     ].join('')
   }
 
-  function renderInline(value) {
-    return escapeHtml(value)
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-  }
-
   function renderRichText(value) {
     var source = String(value == null ? '' : value)
-    var output = []
-    var pattern = /```([\w-]*)\n?([\s\S]*?)```/g
-    var lastIndex = 0
-    var match
-    while ((match = pattern.exec(source))) {
-      output.push(renderInline(source.slice(lastIndex, match.index)))
-      output.push(
-        '<pre><span class="code-label">' + escapeHtml(match[1] || 'code') +
-        '</span><code>' + escapeHtml(match[2].replace(/\n$/, '')) + '</code></pre>'
-      )
-      lastIndex = pattern.lastIndex
+    if (global.marked && global.DOMPurify) {
+      var html = global.marked.parse(source, {
+        breaks: true,
+        gfm: true
+      })
+      return global.DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true }
+      })
     }
-    output.push(renderInline(source.slice(lastIndex)))
-    return output.join('')
+    return escapeHtml(source).replace(/\n/g, '<br>')
+  }
+
+  function decorateRichText(root) {
+    if (!root) return
+    root.querySelectorAll('a[href]').forEach(function (link) {
+      if (/^https?:/i.test(link.href)) {
+        link.target = '_blank'
+        link.rel = 'noopener noreferrer'
+      }
+    })
+    root.querySelectorAll('table').forEach(function (table) {
+      if (table.parentElement.classList.contains('markdown-table-scroll')) return
+      var wrapper = document.createElement('div')
+      wrapper.className = 'markdown-table-scroll'
+      table.parentNode.insertBefore(wrapper, table)
+      wrapper.appendChild(table)
+    })
+    root.querySelectorAll('pre > code').forEach(function (code) {
+      var pre = code.parentElement
+      if (!pre.querySelector('.code-label')) {
+        var language = Array.from(code.classList).find(function (name) {
+          return name.indexOf('language-') === 0
+        })
+        var label = document.createElement('span')
+        label.className = 'code-label'
+        label.textContent = language ? language.slice(9) : 'code'
+        pre.insertBefore(label, code)
+      }
+      if (global.Prism && code.className && !code.classList.contains('language-none')) {
+        try { global.Prism.highlightElement(code) } catch (error) { /* Keep plain code. */ }
+      }
+    })
+  }
+
+  function setRichText(element, value) {
+    element.dataset.raw = String(value == null ? '' : value)
+    element.innerHTML = renderRichText(element.dataset.raw)
+    decorateRichText(element)
   }
 
   function normalizeAssistantContent(content, reasoning) {
@@ -117,9 +145,11 @@
     var thought = normalized.reasoning
     var reasoningMarkup = role === 'assistant'
       ? [
-          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending && thought ? ' open' : '', thought ? '' : ' hidden', '>',
-          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small>', pending ? '分析中' : '已完成', '</small><i></i></summary>',
-          '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">', renderRichText(thought), '</div>',
+          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending ? ' open' : '', '>',
+          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>', pending ? '分析中' : '已完成', '</small><i></i></summary>',
+          '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">',
+          thought ? renderRichText(thought) : '<span class="reasoning-placeholder">', pending ? '正在分析问题...' : '模型未返回可展示的独立思考内容', '</span>',
+          '</div>',
           '</details>'
         ].join('')
       : ''
@@ -173,6 +203,7 @@
     container.innerHTML = '<div class="message-stack">' + items.map(function (item) {
       return messageMarkup(item.role, item.content, false, item.reasoning)
     }).join('') + '</div>'
+    decorateRichText(container)
     autoFollow = true
     scrollToBottom(true)
   }
@@ -239,6 +270,107 @@
     textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px'
   }
 
+  function createStreamRenderer(assistant) {
+    var content = assistant.querySelector('[data-answer-content]')
+    var reasoning = assistant.querySelector('.chat-reasoning')
+    var reasoningContent = assistant.querySelector('[data-reasoning-content]')
+    var reasoningStatus = assistant.querySelector('[data-reasoning-status]')
+    var queue = []
+    var timer = null
+    var completed = false
+    var failed = false
+    var answerStarted = false
+    var hasReasoning = false
+    var startedAt = global.performance.now()
+    var resolveDone
+    var done = new Promise(function (resolve) { resolveDone = resolve })
+
+    function elapsedLabel() {
+      var seconds = Math.max(0.1, (global.performance.now() - startedAt) / 1000)
+      return '已思考 ' + seconds.toFixed(seconds < 10 ? 1 : 0) + 's'
+    }
+
+    function finalize() {
+      if (!completed || queue.length || timer) return
+      assistant.classList.remove('is-pending')
+      reasoning.classList.remove('is-streaming')
+      reasoning.open = false
+      reasoningStatus.textContent = failed ? '已中止' : elapsedLabel()
+      if (!hasReasoning && !reasoningContent.dataset.raw) {
+        reasoningContent.innerHTML = '<span class="reasoning-placeholder">模型未返回可展示的独立思考内容</span>'
+      }
+      resolveDone()
+    }
+
+    function renderPiece(kind, text) {
+      if (kind === 'reasoning') {
+        if (!hasReasoning) {
+          hasReasoning = true
+          reasoningContent.dataset.raw = ''
+        }
+        reasoning.open = true
+        reasoning.classList.add('has-content', 'is-streaming')
+        reasoningStatus.textContent = '分析中'
+        setRichText(reasoningContent, reasoningContent.dataset.raw + text)
+      } else {
+        if (!answerStarted) {
+          answerStarted = true
+          assistant.classList.remove('is-pending')
+          reasoning.open = false
+          reasoning.classList.remove('is-streaming')
+          reasoningStatus.textContent = elapsedLabel()
+        }
+        setRichText(content, content.dataset.raw + text)
+      }
+      scrollToBottom()
+    }
+
+    function pump() {
+      timer = null
+      if (!queue.length) {
+        finalize()
+        return
+      }
+      var queuedCharacters = queue.reduce(function (total, item) {
+        return total + item.text.length
+      }, 0)
+      var item = queue[0]
+      var characterCount = Math.max(1, Math.min(12, Math.ceil(queuedCharacters / 180)))
+      var characters = Array.from(item.text)
+      var piece = characters.slice(0, characterCount).join('')
+      item.text = characters.slice(characterCount).join('')
+      if (!item.text) queue.shift()
+      renderPiece(item.kind, piece)
+      timer = global.setTimeout(pump, 18)
+    }
+
+    function enqueue(kind, text) {
+      if (completed || !text) return
+      var last = queue[queue.length - 1]
+      if (last && last.kind === kind) last.text += String(text)
+      else queue.push({ kind: kind, text: String(text) })
+      if (!timer) timer = global.setTimeout(pump, 0)
+    }
+
+    function complete() {
+      completed = true
+      finalize()
+    }
+
+    function fail(message) {
+      failed = true
+      completed = true
+      queue = []
+      if (timer) global.clearTimeout(timer)
+      timer = null
+      assistant.classList.add('is-error')
+      setRichText(content, message || 'AI 服务暂时不可用')
+      finalize()
+    }
+
+    return { enqueue: enqueue, complete: complete, fail: fail, done: done }
+  }
+
   function sendMessage(textarea) {
     var message = textarea.value.trim()
     if (!message || sending) return
@@ -253,63 +385,37 @@
     stack.insertAdjacentHTML('beforeend', messageMarkup('user', message, false))
     stack.insertAdjacentHTML('beforeend', messageMarkup('assistant', '', true))
     var assistant = stack.lastElementChild
-    var content = assistant.querySelector('[data-answer-content]')
-    var reasoning = assistant.querySelector('.chat-reasoning')
-    var reasoningContent = assistant.querySelector('[data-reasoning-content]')
+    decorateRichText(stack)
+    var streamRenderer = createStreamRenderer(assistant)
     autoFollow = true
     scrollToBottom(true)
 
-    global.AiChatApi.streamMessage(activeConversationId, message, function (eventName, payload) {
+    var streamRequest = global.AiChatApi.streamMessage(activeConversationId, message, function (eventName, payload) {
       if (eventName === 'meta') {
         activeConversationId = payload.conversation_id
         loadConversations()
       }
       if (eventName === 'delta') {
-        assistant.classList.remove('is-pending')
-        if (reasoning && reasoning.classList.contains('has-content') && !content.dataset.raw) {
-          reasoning.open = false
-        }
-        content.dataset.raw += payload.content || ''
-        content.innerHTML = renderRichText(content.dataset.raw)
-        scrollToBottom()
+        streamRenderer.enqueue('answer', payload.content || '')
       }
       if (eventName === 'reasoning') {
-        reasoning.hidden = false
-        reasoning.open = true
-        reasoning.classList.add('has-content', 'is-streaming')
-        reasoning.querySelector('small').textContent = '分析中'
-        reasoningContent.dataset.raw += payload.content || ''
-        reasoningContent.innerHTML = renderRichText(reasoningContent.dataset.raw)
-        scrollToBottom()
+        streamRenderer.enqueue('reasoning', payload.content || '')
       }
       if (eventName === 'done') {
-        assistant.classList.remove('is-pending')
-        if (reasoning && reasoning.classList.contains('has-content')) {
-          reasoning.classList.remove('is-streaming')
-          reasoning.open = false
-          reasoning.querySelector('small').textContent = '已完成'
-        }
+        streamRenderer.complete()
       }
       if (eventName === 'error') {
-        assistant.classList.remove('is-pending')
-        assistant.classList.add('is-error')
-        if (reasoning && reasoning.classList.contains('has-content')) {
-          reasoning.classList.remove('is-streaming')
-          reasoning.querySelector('small').textContent = '已中止'
-        }
-        content.dataset.raw = payload.message || 'AI 服务暂时不可用'
-        content.textContent = content.dataset.raw
+        streamRenderer.fail(payload.message || 'AI 服务暂时不可用')
       }
+    })
+
+    streamRequest.then(function () {
+      streamRenderer.complete()
     }).catch(function (error) {
-      assistant.classList.remove('is-pending')
-      assistant.classList.add('is-error')
-      if (reasoning && reasoning.classList.contains('has-content')) {
-        reasoning.classList.remove('is-streaming')
-        reasoning.querySelector('small').textContent = '已中止'
-      }
-      content.dataset.raw = error.message || '发送失败，请稍后重试'
-      content.textContent = content.dataset.raw
-    }).finally(function () {
+      streamRenderer.fail(error.message || '发送失败，请稍后重试')
+    })
+
+    streamRenderer.done.finally(function () {
       sending = false
       form.classList.remove('is-sending')
       loadConversations()
