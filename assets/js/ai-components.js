@@ -1,7 +1,9 @@
 (function (global) {
   'use strict'
 
-  var eventsBound = false
+  var mountedElement = null
+  var activeConversationId = null
+  var sending = false
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -12,172 +14,266 @@
       .replace(/'/g, '&#039;')
   }
 
-  function safeUrl(value) {
-    try {
-      var url = new URL(value)
-      return /^https?:$/.test(url.protocol) ? url.href : '#'
-    } catch (error) {
-      return '#'
-    }
+  function relativeTime(value) {
+    var elapsed = Date.now() - new Date(value).getTime()
+    if (!Number.isFinite(elapsed)) return ''
+    if (elapsed < 60000) return '刚刚'
+    if (elapsed < 3600000) return Math.floor(elapsed / 60000) + ' 分钟前'
+    if (elapsed < 86400000) return Math.floor(elapsed / 3600000) + ' 小时前'
+    return new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
   }
 
-  function compactNumber(value) {
-    return new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0)
-  }
-
-  function relativeDate(value) {
-    var timestamp = new Date(value).getTime()
-    var days = Math.floor((Date.now() - timestamp) / 86400000)
-    if (!Number.isFinite(timestamp)) return '更新时间未知'
-    if (days < 1) return '今天更新'
-    if (days < 30) return days + ' 天前更新'
-    return new Date(timestamp).toLocaleDateString('zh-CN')
-  }
-
-  function repositoryMarkup(repository) {
+  function shellMarkup() {
     return [
-      '<a class="repo-card" href="', safeUrl(repository.url), '" target="_blank" rel="noopener noreferrer">',
-      '<div class="repo-card__meta"><span>', escapeHtml(repository.owner), '</span><b>★ ', compactNumber(repository.stars), '</b></div>',
-      '<h3>', escapeHtml(repository.name), '</h3>',
-      '<p>', escapeHtml(repository.description), '</p>',
-      '<footer><span>', escapeHtml(repository.language), '</span><span>', relativeDate(repository.updatedAt), '</span><i>↗</i></footer>',
-      '</a>'
+      '<section class="chat-shell">',
+      '<aside class="chat-history" data-chat-history>',
+      '<div class="chat-history__head"><div><span>MEMORY</span><strong>历史对话</strong></div><button type="button" data-new-chat aria-label="新建对话">＋</button></div>',
+      '<div class="chat-history__list" data-conversation-list><div class="history-loading">正在读取历史...</div></div>',
+      '<div class="chat-history__foot"><i></i><span>MySQL 持久化</span></div>',
+      '</aside>',
+      '<div class="chat-main" role="main">',
+      '<header class="chat-topbar">',
+      '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史">☰</button>',
+      '<div><span>AI 对话</span><small>Qwen 3.6 · Groq</small></div>',
+      '<b><i></i> STREAM READY</b>',
+      '</header>',
+      '<div class="chat-messages" data-chat-messages>', emptyMarkup(), '</div>',
+      '<form class="chat-composer" data-chat-form>',
+      '<div class="chat-composer__box">',
+      '<textarea name="message" rows="1" maxlength="6000" placeholder="输入问题，按 Enter 发送..." aria-label="消息"></textarea>',
+      '<button type="submit" aria-label="发送消息"><span>↑</span></button>',
+      '</div>',
+      '<p>AI 可能会犯错，请核对重要信息 · 对话保存在你的匿名会话中</p>',
+      '</form>',
+      '</div>',
+      '</section>'
     ].join('')
   }
 
-  function loadingMarkup(count) {
-    return '<div class="repo-grid">' + Array.from({ length: count || 3 }, function () {
-      return '<span class="skeleton-card"></span>'
-    }).join('') + '</div>'
+  function emptyMarkup() {
+    return [
+      '<div class="chat-empty">',
+      '<div class="chat-empty__mark"><span>AI</span><i></i></div>',
+      '<span class="chat-empty__eyebrow">A FRESH CONVERSATION</span>',
+      '<h1>今天想一起解决什么？</h1>',
+      '<p>可以聊技术、梳理思路，或把一个模糊想法变成可执行方案。</p>',
+      '<div class="chat-prompts">',
+      '<button type="button" data-prompt="帮我设计一个 RAG 系统的最小可行架构">设计 RAG 架构 <i>↗</i></button>',
+      '<button type="button" data-prompt="解释 AI Agent 的核心组成，并给出工程建议">理解 Agent <i>↗</i></button>',
+      '<button type="button" data-prompt="帮我把一个复杂问题拆成清晰的执行步骤">拆解复杂问题 <i>↗</i></button>',
+      '</div>',
+      '</div>'
+    ].join('')
   }
 
-  function repositoryErrorMarkup() {
-    return '<div class="data-message"><b>暂时无法读取 GitHub 数据</b><span>可能触发匿名请求限制，请稍后重试。</span><button data-repo-retry>重新加载</button></div>'
+  function messageMarkup(role, content, pending) {
+    var label = role === 'user' ? 'YOU' : 'AI'
+    return [
+      '<article class="chat-message chat-message--', role, pending ? ' is-pending' : '', '" data-role="', role, '">',
+      '<div class="chat-message__avatar">', label, '</div>',
+      '<div class="chat-message__body"><span>', role === 'user' ? '你' : 'AI 助手', '</span>',
+      '<div class="chat-message__content">', escapeHtml(content), '</div></div>',
+      '</article>'
+    ].join('')
   }
 
-  function loadRepositories(element, force) {
-    var category = element.getAttribute('data-ai-repositories') || 'featured'
-    var limit = Number(element.getAttribute('data-limit')) || 3
-    element.innerHTML = loadingMarkup(Math.min(limit, 3))
-
-    return global.AiDataService.getRepositories(category, { limit: limit, force: force })
-      .then(function (items) {
-        if (element.isConnected) element.innerHTML = '<div class="repo-grid">' + items.map(repositoryMarkup).join('') + '</div>'
-      }).catch(function () {
-        if (element.isConnected) element.innerHTML = repositoryErrorMarkup()
-      })
-  }
-
-  function explorerTabs(active) {
-    return Object.keys(global.AiDataService.categories).map(function (key) {
-      var category = global.AiDataService.categories[key]
-      return '<button type="button" data-radar-category="' + key + '"' + (key === active ? ' class="is-active"' : '') + '>' + escapeHtml(category.label) + '</button>'
+  function listMarkup(items) {
+    if (!items.length) {
+      return '<div class="history-empty"><span>还没有历史对话</span><small>发送第一条消息后会显示在这里</small></div>'
+    }
+    return items.map(function (item) {
+      return [
+        '<div class="history-item', item.id === activeConversationId ? ' is-active' : '', '" data-conversation-id="', escapeHtml(item.id), '">',
+        '<button class="history-item__open" type="button"><strong>', escapeHtml(item.title), '</strong><small>', relativeTime(item.updated_at), ' · ', item.message_count, ' 条消息</small></button>',
+        '<button class="history-item__delete" type="button" data-delete-conversation aria-label="删除对话">×</button>',
+        '</div>'
+      ].join('')
     }).join('')
   }
 
-  function loadExplorer(element, category, force) {
-    var active = category || element.getAttribute('data-default-category') || 'featured'
-    var limit = Number(element.getAttribute('data-limit')) || 9
-    element.setAttribute('data-active-category', active)
-    element.innerHTML = '<div class="radar-tabs">' + explorerTabs(active) + '</div><div class="radar-results">' + loadingMarkup(3) + '</div>'
-    var results = element.querySelector('.radar-results')
-
-    return global.AiDataService.getRepositories(active, { limit: limit, force: force })
-      .then(function (items) {
-        if (results.isConnected) results.innerHTML = '<div class="repo-grid">' + items.map(repositoryMarkup).join('') + '</div>'
-      }).catch(function () {
-        if (results.isConnected) results.innerHTML = repositoryErrorMarkup()
-      })
+  function loadConversations() {
+    if (!mountedElement) return Promise.resolve()
+    var list = mountedElement.querySelector('[data-conversation-list]')
+    return global.AiChatApi.conversations().then(function (payload) {
+      if (list.isConnected) list.innerHTML = listMarkup(payload.conversations || [])
+    }).catch(function () {
+      if (list.isConnected) list.innerHTML = '<div class="history-error">历史记录暂时不可用</div>'
+    })
   }
 
-  function healthFlow(apiState, databaseState, details) {
-    return [
-      '<div class="health-flow">',
-      '<div class="health-node is-up"><span>01</span><strong>Pages</strong><small>browser</small></div><i></i>',
-      '<div class="health-node ', apiState, '"><span>02</span><strong>API</strong><small>', escapeHtml(details.api), '</small></div><i></i>',
-      '<div class="health-node ', databaseState, '"><span>03</span><strong>MySQL</strong><small>', escapeHtml(details.database), '</small></div>',
-      '</div>'
-    ].join('')
+  function renderMessages(items) {
+    var container = mountedElement.querySelector('[data-chat-messages]')
+    if (!items.length) {
+      container.innerHTML = emptyMarkup()
+      return
+    }
+    container.innerHTML = '<div class="message-stack">' + items.map(function (item) {
+      return messageMarkup(item.role, item.content, false)
+    }).join('') + '</div>'
+    scrollToBottom()
   }
 
-  function healthLoadingMarkup() {
-    return [
-      '<div class="health-head"><span><i class="status-dot is-checking"></i>CHECKING SYSTEM</span><button data-health-retry disabled>检测中</button></div>',
-      healthFlow('is-checking', '', { api: 'connecting', database: 'waiting' }),
-      '<div class="health-meta"><span>正在请求生产环境</span><code>/api/health</code></div>'
-    ].join('')
+  function openConversation(conversationId) {
+    if (sending) return
+    activeConversationId = conversationId
+    mountedElement.classList.remove('is-history-open')
+    return global.AiChatApi.messages(conversationId).then(function (payload) {
+      renderMessages(payload.messages || [])
+      return loadConversations()
+    }).catch(function () {
+      showNotice('无法读取该对话，请稍后重试。')
+    })
   }
 
-  function healthSuccessMarkup(result) {
-    var payload = result.payload
-    var database = payload.database || {}
-    return [
-      '<div class="health-head"><span><i class="status-dot is-up"></i>ALL SYSTEMS OPERATIONAL</span><button data-health-retry>重新检测</button></div>',
-      healthFlow('is-up', 'is-up', { api: (payload.latencyMs || result.roundTripMs) + ' ms', database: database.name || 'connected' }),
-      '<div class="health-metrics">',
-      '<div><span>ROUND TRIP</span><strong>', escapeHtml(result.roundTripMs), '<small>ms</small></strong></div>',
-      '<div><span>DATABASE</span><strong>', escapeHtml(database.name || 'online'), '</strong></div>',
-      '<div><span>CHECKED</span><strong>', escapeHtml(new Date(payload.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })), '</strong></div>',
-      '</div>'
-    ].join('')
+  function newChat() {
+    if (sending) return
+    activeConversationId = null
+    mountedElement.classList.remove('is-history-open')
+    renderMessages([])
+    loadConversations()
+    var input = mountedElement.querySelector('textarea[name="message"]')
+    if (input) input.focus()
   }
 
-  function healthErrorMarkup(error) {
-    var detail = error && error.name === 'AbortError' ? 'timeout' : (error.code || error.status || 'offline')
-    return [
-      '<div class="health-head"><span><i class="status-dot is-down"></i>SERVICE NEEDS ATTENTION</span><button data-health-retry>重新检测</button></div>',
-      healthFlow('is-down', '', { api: detail, database: 'unknown' }),
-      '<div class="health-alert"><b>后端暂时不可用</b><span>生产接口没有返回健康状态，请检查 Vercel Runtime Logs。</span></div>'
-    ].join('')
+  function showNotice(message) {
+    var container = mountedElement.querySelector('[data-chat-messages]')
+    var notice = document.createElement('div')
+    notice.className = 'chat-notice'
+    notice.textContent = message
+    container.appendChild(notice)
+    scrollToBottom()
   }
 
-  function loadHealth(element) {
-    element.innerHTML = healthLoadingMarkup()
-    global.AiDataService.checkBackend().then(function (result) {
-      if (element.isConnected) element.innerHTML = healthSuccessMarkup(result)
+  function scrollToBottom() {
+    var container = mountedElement && mountedElement.querySelector('[data-chat-messages]')
+    if (container) container.scrollTop = container.scrollHeight
+  }
+
+  function ensureStack() {
+    var container = mountedElement.querySelector('[data-chat-messages]')
+    var stack = container.querySelector('.message-stack')
+    if (!stack) {
+      container.innerHTML = '<div class="message-stack"></div>'
+      stack = container.querySelector('.message-stack')
+    }
+    return stack
+  }
+
+  function resizeTextarea(textarea) {
+    textarea.style.height = 'auto'
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px'
+  }
+
+  function sendMessage(textarea) {
+    var message = textarea.value.trim()
+    if (!message || sending) return
+
+    sending = true
+    var form = mountedElement.querySelector('[data-chat-form]')
+    form.classList.add('is-sending')
+    textarea.value = ''
+    resizeTextarea(textarea)
+
+    var stack = ensureStack()
+    stack.insertAdjacentHTML('beforeend', messageMarkup('user', message, false))
+    stack.insertAdjacentHTML('beforeend', messageMarkup('assistant', '', true))
+    var assistant = stack.lastElementChild
+    var content = assistant.querySelector('.chat-message__content')
+    scrollToBottom()
+
+    global.AiChatApi.streamMessage(activeConversationId, message, function (eventName, payload) {
+      if (eventName === 'meta') {
+        activeConversationId = payload.conversation_id
+        loadConversations()
+      }
+      if (eventName === 'delta') {
+        assistant.classList.remove('is-pending')
+        content.textContent += payload.content || ''
+        scrollToBottom()
+      }
+      if (eventName === 'error') {
+        assistant.classList.remove('is-pending')
+        assistant.classList.add('is-error')
+        content.textContent = payload.message || 'AI 服务暂时不可用'
+      }
     }).catch(function (error) {
-      if (element.isConnected) element.innerHTML = healthErrorMarkup(error)
+      assistant.classList.remove('is-pending')
+      assistant.classList.add('is-error')
+      content.textContent = error.message || '发送失败，请稍后重试'
+    }).finally(function () {
+      sending = false
+      form.classList.remove('is-sending')
+      loadConversations()
+      textarea.focus()
     })
   }
 
-  function bindEvents() {
-    if (eventsBound) return
-    eventsBound = true
-    document.addEventListener('click', function (event) {
-      var categoryButton = event.target.closest('[data-radar-category]')
-      if (categoryButton) {
-        var explorer = categoryButton.closest('[data-ai-explorer]')
-        if (explorer) loadExplorer(explorer, categoryButton.getAttribute('data-radar-category'), false)
+  function bindEvents(element) {
+    element.addEventListener('submit', function (event) {
+      var form = event.target.closest('[data-chat-form]')
+      if (!form) return
+      event.preventDefault()
+      sendMessage(form.querySelector('textarea[name="message"]'))
+    })
+
+    element.addEventListener('input', function (event) {
+      if (event.target.matches('textarea[name="message"]')) resizeTextarea(event.target)
+    })
+
+    element.addEventListener('keydown', function (event) {
+      if (!event.target.matches('textarea[name="message"]')) return
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        sendMessage(event.target)
+      }
+    })
+
+    element.addEventListener('click', function (event) {
+      var prompt = event.target.closest('[data-prompt]')
+      if (prompt) {
+        var textarea = element.querySelector('textarea[name="message"]')
+        textarea.value = prompt.getAttribute('data-prompt')
+        resizeTextarea(textarea)
+        textarea.focus()
         return
       }
 
-      var healthButton = event.target.closest('[data-health-retry]')
-      if (healthButton) {
-        var health = healthButton.closest('[data-api-health-check]')
-        if (health) loadHealth(health)
+      if (event.target.closest('[data-new-chat]')) {
+        newChat()
         return
       }
 
-      var retryButton = event.target.closest('[data-repo-retry]')
-      if (!retryButton) return
-      var repository = retryButton.closest('[data-ai-repositories]')
-      var explorerElement = retryButton.closest('[data-ai-explorer]')
-      if (repository) loadRepositories(repository, true)
-      if (explorerElement) loadExplorer(explorerElement, explorerElement.getAttribute('data-active-category'), true)
+      if (event.target.closest('[data-history-toggle]')) {
+        element.classList.toggle('is-history-open')
+        return
+      }
+
+      var item = event.target.closest('[data-conversation-id]')
+      if (!item) return
+      var id = item.getAttribute('data-conversation-id')
+      if (event.target.closest('[data-delete-conversation]')) {
+        global.AiChatApi.removeConversation(id).then(function () {
+          if (activeConversationId === id) newChat()
+          return loadConversations()
+        }).catch(function () { showNotice('删除失败，请稍后重试。') })
+        return
+      }
+      openConversation(id)
     })
   }
 
-  function mount(root) {
-    if (!global.AiDataService) return
-    bindEvents()
-    root.querySelectorAll('[data-ai-repositories]').forEach(function (element) { loadRepositories(element, false) })
-    root.querySelectorAll('[data-ai-explorer]').forEach(function (element) { loadExplorer(element, null, false) })
-    root.querySelectorAll('[data-api-health-check]').forEach(function (element) { loadHealth(element) })
+  function mount(element) {
+    mountedElement = element
+    activeConversationId = null
+    element.innerHTML = shellMarkup()
+    bindEvents(element)
+    loadConversations()
   }
 
   global.AiPortalPlugin = function (hook) {
     hook.doneEach(function () {
-      global.requestAnimationFrame(function () { mount(document) })
+      var element = document.querySelector('[data-chat-app]')
+      if (element) mount(element)
     })
   }
 })(window)

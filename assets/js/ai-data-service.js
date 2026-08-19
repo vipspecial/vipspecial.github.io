@@ -1,103 +1,115 @@
 (function (global) {
   'use strict'
 
-  var GITHUB_URL = 'https://api.github.com/search/repositories'
-  var BACKEND_URL = 'https://vipspecial-github-io-vercel.vercel.app/api/health'
-  var CACHE_PREFIX = 'ai-systems:'
-  var CACHE_TTL = 15 * 60 * 1000
+  var isLocalPreview = /^(localhost|127\.0\.0\.1)$/.test(global.location.hostname)
+  var API_BASE = isLocalPreview
+    ? 'http://127.0.0.1:8000'
+    : 'https://vipspecial-github-io-vercel.vercel.app'
+  var CLIENT_KEY = 'ai-systems:client-id'
 
-  var categories = Object.freeze({
-    featured: { label: '精选', query: 'topic:artificial-intelligence stars:>3000' },
-    rag: { label: 'RAG', query: 'rag in:name,description stars:>300' },
-    agents: { label: 'Agent', query: 'ai-agent in:name,description stars:>300' },
-    mcp: { label: 'MCP', query: 'mcp-server in:name,description stars:>100' }
-  })
+  function clientId() {
+    var stored = global.localStorage.getItem(CLIENT_KEY)
+    if (stored) return stored
+    var id = global.crypto && global.crypto.randomUUID
+      ? global.crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (character) {
+          var random = Math.random() * 16 | 0
+          var value = character === 'x' ? random : (random & 3 | 8)
+          return value.toString(16)
+        })
+    global.localStorage.setItem(CLIENT_KEY, id)
+    return id
+  }
 
-  function requestJson(url, timeoutMs) {
-    var controller = new AbortController()
-    var timer = global.setTimeout(function () { controller.abort() }, timeoutMs || 9000)
-
-    return global.fetch(url, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal
+  function request(path, options) {
+    var settings = options || {}
+    return global.fetch(API_BASE + path, {
+      method: settings.method || 'GET',
+      headers: settings.body ? { 'Content-Type': 'application/json' } : {},
+      body: settings.body ? JSON.stringify(settings.body) : undefined
     }).then(function (response) {
       return response.json().catch(function () { return {} }).then(function (payload) {
-        if (!response.ok || payload.ok === false) {
-          var error = new Error(payload.error || 'Request failed with status ' + response.status)
+        if (!response.ok) {
+          var error = new Error(payload.detail || payload.error || '请求失败')
           error.status = response.status
-          error.code = payload.errorCode
           throw error
         }
         return payload
       })
-    }).finally(function () {
-      global.clearTimeout(timer)
     })
   }
 
-  function readCache(key) {
-    try {
-      var value = JSON.parse(global.localStorage.getItem(CACHE_PREFIX + key))
-      return value && Date.now() - value.savedAt < CACHE_TTL ? value.data : null
-    } catch (error) {
-      return null
-    }
+  function conversations() {
+    return request('/api/conversations?client_id=' + encodeURIComponent(clientId()))
   }
 
-  function writeCache(key, data) {
-    try {
-      global.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data: data, savedAt: Date.now() }))
-    } catch (error) {
-      // Public data still renders when browser storage is unavailable.
-    }
-    return data
+  function messages(conversationId) {
+    return request('/api/conversations/' + encodeURIComponent(conversationId) + '/messages?client_id=' + encodeURIComponent(clientId()))
   }
 
-  function normalizeRepository(item) {
-    return {
-      id: item.id,
-      name: item.name,
-      owner: item.owner && item.owner.login ? item.owner.login : 'unknown',
-      description: item.description || '该项目暂未提供简介。',
-      url: item.html_url,
-      stars: item.stargazers_count || 0,
-      language: item.language || 'Multi',
-      updatedAt: item.updated_at
-    }
-  }
-
-  function getRepositories(categoryName, options) {
-    var settings = options || {}
-    var category = categories[categoryName] || categories.featured
-    var limit = Math.min(Math.max(Number(settings.limit) || 3, 1), 12)
-    var cacheKey = 'repos:' + categoryName + ':' + limit
-    var cached = !settings.force && readCache(cacheKey)
-    if (cached) return Promise.resolve(cached)
-
-    var params = new URLSearchParams({
-      q: category.query,
-      sort: 'stars',
-      order: 'desc',
-      per_page: String(limit)
+  function removeConversation(conversationId) {
+    return request('/api/conversations/' + encodeURIComponent(conversationId) + '?client_id=' + encodeURIComponent(clientId()), {
+      method: 'DELETE'
     })
+  }
 
-    return requestJson(GITHUB_URL + '?' + params.toString())
-      .then(function (payload) {
-        return writeCache(cacheKey, (payload.items || []).map(normalizeRepository))
+  function streamMessage(conversationId, message, onEvent) {
+    return global.fetch(API_BASE + '/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: clientId(),
+        conversation_id: conversationId || null,
+        message: message
       })
-  }
+    }).then(function (response) {
+      if (!response.ok) {
+        return response.json().catch(function () { return {} }).then(function (payload) {
+          throw new Error(payload.detail || 'AI 服务请求失败')
+        })
+      }
+      if (!response.body) throw new Error('当前浏览器不支持流式响应')
 
-  function checkBackend() {
-    var startedAt = Date.now()
-    return requestJson(BACKEND_URL, 10000).then(function (payload) {
-      return { payload: payload, roundTripMs: Date.now() - startedAt }
+      var reader = response.body.getReader()
+      var decoder = new TextDecoder()
+      var buffer = ''
+
+      function emitBlock(block) {
+        var eventName = 'message'
+        var dataLines = []
+        block.split('\n').forEach(function (line) {
+          if (line.indexOf('event:') === 0) eventName = line.slice(6).trim()
+          if (line.indexOf('data:') === 0) dataLines.push(line.slice(5).trim())
+        })
+        if (!dataLines.length) return
+        try {
+          onEvent(eventName, JSON.parse(dataLines.join('\n')))
+        } catch (error) {
+          onEvent('error', { message: '流式响应解析失败' })
+        }
+      }
+
+      function read() {
+        return reader.read().then(function (result) {
+          buffer += decoder.decode(result.value || new Uint8Array(), { stream: !result.done })
+          var blocks = buffer.split('\n\n')
+          buffer = blocks.pop() || ''
+          blocks.forEach(emitBlock)
+          if (!result.done) return read()
+          if (buffer.trim()) emitBlock(buffer)
+        })
+      }
+
+      return read()
     })
   }
 
-  global.AiDataService = Object.freeze({
-    backendUrl: BACKEND_URL,
-    categories: categories,
-    getRepositories: getRepositories,
-    checkBackend: checkBackend
+  global.AiChatApi = Object.freeze({
+    baseUrl: API_BASE,
+    clientId: clientId,
+    conversations: conversations,
+    messages: messages,
+    removeConversation: removeConversation,
+    streamMessage: streamMessage
   })
 })(window)
