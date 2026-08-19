@@ -4,6 +4,7 @@
   var mountedElement = null
   var activeConversationId = null
   var sending = false
+  var autoFollow = true
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -26,18 +27,20 @@
   function shellMarkup() {
     return [
       '<section class="chat-shell">',
-      '<aside class="chat-history" data-chat-history>',
+      '<button class="history-backdrop" type="button" data-history-close aria-label="关闭历史对话"></button>',
+      '<aside class="chat-history" id="chat-history-panel" data-chat-history>',
       '<div class="chat-history__head"><div><span>MEMORY</span><strong>历史对话</strong></div><button type="button" data-new-chat aria-label="新建对话">＋</button></div>',
       '<div class="chat-history__list" data-conversation-list><div class="history-loading">正在读取历史...</div></div>',
       '<div class="chat-history__foot"><i></i><span>MySQL 持久化</span></div>',
       '</aside>',
       '<div class="chat-main" role="main">',
       '<header class="chat-topbar">',
-      '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史">☰</button>',
+      '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史" aria-controls="chat-history-panel" aria-expanded="false">☰</button>',
       '<div><span>AI 对话</span><small>Qwen 3.6 · Groq</small></div>',
       '<b><i></i> STREAM READY</b>',
       '</header>',
       '<div class="chat-messages" data-chat-messages>', emptyMarkup(), '</div>',
+      '<button class="scroll-latest" type="button" data-scroll-bottom>回到最新 <span>↓</span></button>',
       '<form class="chat-composer" data-chat-form>',
       '<div class="chat-composer__box">',
       '<textarea name="message" rows="1" maxlength="6000" placeholder="输入问题，按 Enter 发送..." aria-label="消息"></textarea>',
@@ -48,6 +51,46 @@
       '</div>',
       '</section>'
     ].join('')
+  }
+
+  function renderInline(value) {
+    return escapeHtml(value)
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  }
+
+  function renderRichText(value) {
+    var source = String(value == null ? '' : value)
+    var output = []
+    var pattern = /```([\w-]*)\n?([\s\S]*?)```/g
+    var lastIndex = 0
+    var match
+    while ((match = pattern.exec(source))) {
+      output.push(renderInline(source.slice(lastIndex, match.index)))
+      output.push(
+        '<pre><span class="code-label">' + escapeHtml(match[1] || 'code') +
+        '</span><code>' + escapeHtml(match[2].replace(/\n$/, '')) + '</code></pre>'
+      )
+      lastIndex = pattern.lastIndex
+    }
+    output.push(renderInline(source.slice(lastIndex)))
+    return output.join('')
+  }
+
+  function normalizeAssistantContent(content, reasoning) {
+    var answer = String(content || '')
+    var thought = String(reasoning || '')
+    if (!thought && answer.indexOf('<think>') >= 0) {
+      var start = answer.indexOf('<think>')
+      var end = answer.indexOf('</think>', start + 7)
+      thought = end >= 0
+        ? answer.slice(start + 7, end)
+        : answer.slice(start + 7)
+      answer = end >= 0
+        ? answer.slice(0, start) + answer.slice(end + 8)
+        : answer.slice(0, start)
+    }
+    return { answer: answer.trim(), reasoning: thought.trim() }
   }
 
   function emptyMarkup() {
@@ -66,13 +109,26 @@
     ].join('')
   }
 
-  function messageMarkup(role, content, pending) {
+  function messageMarkup(role, content, pending, reasoning) {
     var label = role === 'user' ? 'YOU' : 'AI'
+    var normalized = role === 'assistant'
+      ? normalizeAssistantContent(content, reasoning)
+      : { answer: String(content || ''), reasoning: '' }
+    var thought = normalized.reasoning
+    var reasoningMarkup = role === 'assistant'
+      ? [
+          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending && thought ? ' open' : '', thought ? '' : ' hidden', '>',
+          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small>', pending ? '分析中' : '已完成', '</small><i></i></summary>',
+          '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">', renderRichText(thought), '</div>',
+          '</details>'
+        ].join('')
+      : ''
     return [
       '<article class="chat-message chat-message--', role, pending ? ' is-pending' : '', '" data-role="', role, '">',
       '<div class="chat-message__avatar">', label, '</div>',
       '<div class="chat-message__body"><span>', role === 'user' ? '你' : 'AI 助手', '</span>',
-      '<div class="chat-message__content">', escapeHtml(content), '</div></div>',
+      reasoningMarkup,
+      '<div class="chat-message__content" data-answer-content data-raw="', escapeHtml(normalized.answer), '">', renderRichText(normalized.answer), '</div></div>',
       '</article>'
     ].join('')
   }
@@ -101,6 +157,13 @@
     })
   }
 
+  function closeHistory() {
+    if (!mountedElement) return
+    mountedElement.classList.remove('is-history-open')
+    var toggle = mountedElement.querySelector('[data-history-toggle]')
+    if (toggle) toggle.setAttribute('aria-expanded', 'false')
+  }
+
   function renderMessages(items) {
     var container = mountedElement.querySelector('[data-chat-messages]')
     if (!items.length) {
@@ -108,15 +171,16 @@
       return
     }
     container.innerHTML = '<div class="message-stack">' + items.map(function (item) {
-      return messageMarkup(item.role, item.content, false)
+      return messageMarkup(item.role, item.content, false, item.reasoning)
     }).join('') + '</div>'
-    scrollToBottom()
+    autoFollow = true
+    scrollToBottom(true)
   }
 
   function openConversation(conversationId) {
     if (sending) return
     activeConversationId = conversationId
-    mountedElement.classList.remove('is-history-open')
+    closeHistory()
     return global.AiChatApi.messages(conversationId).then(function (payload) {
       renderMessages(payload.messages || [])
       return loadConversations()
@@ -128,7 +192,7 @@
   function newChat() {
     if (sending) return
     activeConversationId = null
-    mountedElement.classList.remove('is-history-open')
+    closeHistory()
     renderMessages([])
     loadConversations()
     var input = mountedElement.querySelector('textarea[name="message"]')
@@ -141,12 +205,23 @@
     notice.className = 'chat-notice'
     notice.textContent = message
     container.appendChild(notice)
-    scrollToBottom()
+    scrollToBottom(true)
   }
 
-  function scrollToBottom() {
+  function updateScrollButton() {
+    if (!mountedElement) return
+    var button = mountedElement.querySelector('[data-scroll-bottom]')
+    if (button) button.classList.toggle('is-visible', !autoFollow)
+  }
+
+  function scrollToBottom(force) {
     var container = mountedElement && mountedElement.querySelector('[data-chat-messages]')
-    if (container) container.scrollTop = container.scrollHeight
+    if (!container || (!force && !autoFollow)) return
+    global.requestAnimationFrame(function () {
+      container.scrollTop = container.scrollHeight
+      if (force) autoFollow = true
+      updateScrollButton()
+    })
   }
 
   function ensureStack() {
@@ -178,8 +253,11 @@
     stack.insertAdjacentHTML('beforeend', messageMarkup('user', message, false))
     stack.insertAdjacentHTML('beforeend', messageMarkup('assistant', '', true))
     var assistant = stack.lastElementChild
-    var content = assistant.querySelector('.chat-message__content')
-    scrollToBottom()
+    var content = assistant.querySelector('[data-answer-content]')
+    var reasoning = assistant.querySelector('.chat-reasoning')
+    var reasoningContent = assistant.querySelector('[data-reasoning-content]')
+    autoFollow = true
+    scrollToBottom(true)
 
     global.AiChatApi.streamMessage(activeConversationId, message, function (eventName, payload) {
       if (eventName === 'meta') {
@@ -188,18 +266,49 @@
       }
       if (eventName === 'delta') {
         assistant.classList.remove('is-pending')
-        content.textContent += payload.content || ''
+        if (reasoning && reasoning.classList.contains('has-content') && !content.dataset.raw) {
+          reasoning.open = false
+        }
+        content.dataset.raw += payload.content || ''
+        content.innerHTML = renderRichText(content.dataset.raw)
         scrollToBottom()
+      }
+      if (eventName === 'reasoning') {
+        reasoning.hidden = false
+        reasoning.open = true
+        reasoning.classList.add('has-content', 'is-streaming')
+        reasoning.querySelector('small').textContent = '分析中'
+        reasoningContent.dataset.raw += payload.content || ''
+        reasoningContent.innerHTML = renderRichText(reasoningContent.dataset.raw)
+        scrollToBottom()
+      }
+      if (eventName === 'done') {
+        assistant.classList.remove('is-pending')
+        if (reasoning && reasoning.classList.contains('has-content')) {
+          reasoning.classList.remove('is-streaming')
+          reasoning.open = false
+          reasoning.querySelector('small').textContent = '已完成'
+        }
       }
       if (eventName === 'error') {
         assistant.classList.remove('is-pending')
         assistant.classList.add('is-error')
-        content.textContent = payload.message || 'AI 服务暂时不可用'
+        if (reasoning && reasoning.classList.contains('has-content')) {
+          reasoning.classList.remove('is-streaming')
+          reasoning.querySelector('small').textContent = '已中止'
+        }
+        content.dataset.raw = payload.message || 'AI 服务暂时不可用'
+        content.textContent = content.dataset.raw
       }
     }).catch(function (error) {
       assistant.classList.remove('is-pending')
       assistant.classList.add('is-error')
-      content.textContent = error.message || '发送失败，请稍后重试'
+      if (reasoning && reasoning.classList.contains('has-content')) {
+        reasoning.classList.remove('is-streaming')
+        reasoning.querySelector('small').textContent = '已中止'
+      }
+      content.dataset.raw = error.message || '发送失败，请稍后重试'
+      content.textContent = content.dataset.raw
     }).finally(function () {
       sending = false
       form.classList.remove('is-sending')
@@ -220,7 +329,17 @@
       if (event.target.matches('textarea[name="message"]')) resizeTextarea(event.target)
     })
 
+    element.querySelector('[data-chat-messages]').addEventListener('scroll', function (event) {
+      var container = event.currentTarget
+      autoFollow = container.scrollHeight - container.scrollTop - container.clientHeight < 96
+      updateScrollButton()
+    }, { passive: true })
+
     element.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closeHistory()
+        return
+      }
       if (!event.target.matches('textarea[name="message"]')) return
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
@@ -245,6 +364,20 @@
 
       if (event.target.closest('[data-history-toggle]')) {
         element.classList.toggle('is-history-open')
+        event.target.closest('[data-history-toggle]').setAttribute(
+          'aria-expanded',
+          String(element.classList.contains('is-history-open'))
+        )
+        return
+      }
+
+      if (event.target.closest('[data-history-close]')) {
+        closeHistory()
+        return
+      }
+
+      if (event.target.closest('[data-scroll-bottom]')) {
+        scrollToBottom(true)
         return
       }
 
@@ -273,6 +406,7 @@
   global.AiPortalPlugin = function (hook) {
     hook.doneEach(function () {
       var element = document.querySelector('[data-chat-app]')
+      document.body.classList.toggle('is-chat-route', Boolean(element))
       if (element) mount(element)
     })
   }
