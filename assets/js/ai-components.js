@@ -5,8 +5,8 @@
   var activeConversationId = null
   var sending = false
   var autoFollow = true
-  var MODEL_KEY = 'ai-systems:selected-model'
-  var DEFAULT_MODEL = 'qwen/qwen3.6-27b'
+  var MODEL_KEY = 'ai-systems:selected-model:v2'
+  var DEFAULT_MODEL = 'glm-4-flash'
   var selectedModel = global.localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL
 
   function escapeHtml(value) {
@@ -41,8 +41,8 @@
       '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史" aria-controls="chat-history-panel" aria-expanded="false">☰</button>',
       '<div><span>AI 学习助手</span><small>提问 · 理解 · 掌握</small></div>',
       '<label class="model-picker"><span>模型</span><select data-model-select aria-label="选择 AI 模型">',
-      '<option value="qwen/qwen3.6-27b">Qwen 3.6</option>',
       '<option value="glm-4-flash">GLM-4 Flash</option>',
+      '<option value="qwen/qwen3.6-27b">Qwen 3.6</option>',
       '</select></label>',
       '<b><i></i> 实时辅导中</b>',
       '</header>',
