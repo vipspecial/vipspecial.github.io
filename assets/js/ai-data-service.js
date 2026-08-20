@@ -58,6 +58,10 @@
     return request('/api/conversations?client_id=' + encodeURIComponent(clientId()))
   }
 
+  function models() {
+    return request('/api/models')
+  }
+
   function messages(conversationId) {
     return request('/api/conversations/' + encodeURIComponent(conversationId) + '/messages?client_id=' + encodeURIComponent(clientId()))
   }
@@ -68,11 +72,12 @@
     })
   }
 
-  function streamMessage(conversationId, message, onEvent) {
+  function streamMessage(conversationId, message, model, onEvent) {
     var requestId = null
     logEvent('info', 'stream_requested', {
       conversation_id: conversationId || null,
-      message_chars: message.length
+      message_chars: message.length,
+      model: model
     })
     return global.fetch(API_BASE + '/api/chat/stream', {
       method: 'POST',
@@ -80,7 +85,8 @@
       body: JSON.stringify({
         client_id: clientId(),
         conversation_id: conversationId || null,
-        message: message
+        message: message,
+        model: model
       })
     }).then(function (response) {
       requestId = response.headers.get('X-Request-ID') || requestId
@@ -165,6 +171,7 @@
   global.AiChatApi = Object.freeze({
     baseUrl: API_BASE,
     clientId: clientId,
+    models: models,
     conversations: conversations,
     messages: messages,
     removeConversation: removeConversation,

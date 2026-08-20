@@ -5,6 +5,9 @@
   var activeConversationId = null
   var sending = false
   var autoFollow = true
+  var MODEL_KEY = 'ai-systems:selected-model'
+  var DEFAULT_MODEL = 'qwen/qwen3.6-27b'
+  var selectedModel = global.localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -37,6 +40,10 @@
       '<header class="chat-topbar">',
       '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史" aria-controls="chat-history-panel" aria-expanded="false">☰</button>',
       '<div><span>AI 学习助手</span><small>提问 · 理解 · 掌握</small></div>',
+      '<label class="model-picker"><span>模型</span><select data-model-select aria-label="选择 AI 模型">',
+      '<option value="qwen/qwen3.6-27b">Qwen 3.6</option>',
+      '<option value="glm-4-flash">GLM-4 Flash</option>',
+      '</select></label>',
       '<b><i></i> 实时辅导中</b>',
       '</header>',
       '<div class="chat-messages" data-chat-messages>', emptyMarkup(), '</div>',
@@ -184,6 +191,25 @@
       if (list.isConnected) list.innerHTML = listMarkup(payload.conversations || [])
     }).catch(function () {
       if (list.isConnected) list.innerHTML = '<div class="history-error">历史记录暂时不可用</div>'
+    })
+  }
+
+  function loadModels() {
+    if (!mountedElement) return Promise.resolve()
+    var select = mountedElement.querySelector('[data-model-select]')
+    return global.AiChatApi.models().then(function (payload) {
+      var models = payload.models || []
+      if (!models.length || !select.isConnected) return
+      select.innerHTML = models.map(function (model) {
+        return '<option value="' + escapeHtml(model.id) + '">' +
+          escapeHtml(model.name + ' · ' + model.provider) + '</option>'
+      }).join('')
+      var available = models.some(function (model) { return model.id === selectedModel })
+      selectedModel = available ? selectedModel : (payload.default_model || models[0].id)
+      select.value = selectedModel
+      global.localStorage.setItem(MODEL_KEY, selectedModel)
+    }).catch(function () {
+      if (select.isConnected) select.value = selectedModel
     })
   }
 
@@ -382,7 +408,10 @@
 
     sending = true
     var form = mountedElement.querySelector('[data-chat-form]')
+    var modelSelect = mountedElement.querySelector('[data-model-select]')
+    selectedModel = modelSelect.value || selectedModel
     form.classList.add('is-sending')
+    modelSelect.disabled = true
     textarea.value = ''
     resizeTextarea(textarea)
 
@@ -395,7 +424,7 @@
     autoFollow = true
     scrollToBottom(true)
 
-    var streamRequest = global.AiChatApi.streamMessage(activeConversationId, message, function (eventName, payload) {
+    var streamRequest = global.AiChatApi.streamMessage(activeConversationId, message, selectedModel, function (eventName, payload) {
       if (eventName === 'meta') {
         activeConversationId = payload.conversation_id
         loadConversations()
@@ -423,12 +452,19 @@
     streamRenderer.done.finally(function () {
       sending = false
       form.classList.remove('is-sending')
+      modelSelect.disabled = false
       loadConversations()
       textarea.focus()
     })
   }
 
   function bindEvents(element) {
+    element.addEventListener('change', function (event) {
+      if (!event.target.matches('[data-model-select]')) return
+      selectedModel = event.target.value
+      global.localStorage.setItem(MODEL_KEY, selectedModel)
+    })
+
     element.addEventListener('submit', function (event) {
       var form = event.target.closest('[data-chat-form]')
       if (!form) return
@@ -511,6 +547,8 @@
     activeConversationId = null
     element.innerHTML = shellMarkup()
     bindEvents(element)
+    element.querySelector('[data-model-select]').value = selectedModel
+    loadModels()
     loadConversations()
   }
 

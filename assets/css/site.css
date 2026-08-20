@@ -199,7 +199,11 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .chat-topbar > div { display: flex; flex-direction: column; gap: 3px; }
 .chat-topbar > div span { color: var(--academy-deep); font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: 0.02em; }
 .chat-topbar > div small { color: var(--muted); font-size: 9px; letter-spacing: 0.06em; }
-.chat-topbar b { align-items: center; background: var(--academy-soft); border: 1px solid #edcdbb; border-radius: 999px; color: var(--academy-deep); display: flex; font-size: 9px; font-weight: 650; gap: 7px; letter-spacing: 0.06em; margin-left: auto; padding: 7px 11px; }
+.model-picker { align-items: center; background: var(--paper-raised); border: 1px solid var(--line); border-radius: 9px; display: flex; gap: 7px; margin-left: auto; padding: 3px 8px; }
+.model-picker > span { color: var(--muted); font-size: 9px; font-weight: 600; white-space: nowrap; }
+.model-picker select { appearance: none; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='m1 1 3 3 3-3' fill='none' stroke='%23df6b2f' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right center; border: 0; color: var(--academy-deep); cursor: pointer; font-size: 10px; font-weight: 650; max-width: 170px; outline: 0; padding: 5px 14px 5px 0; }
+.model-picker select:disabled { cursor: wait; opacity: 0.55; }
+.chat-topbar b { align-items: center; background: var(--academy-soft); border: 1px solid #edcdbb; border-radius: 999px; color: var(--academy-deep); display: flex; font-size: 9px; font-weight: 650; gap: 7px; letter-spacing: 0.06em; padding: 7px 11px; }
 .chat-topbar b i { animation: status-pulse 2.4s ease-in-out infinite; background: var(--academy); border-radius: 50%; height: 7px; width: 7px; }
 .chat-messages { -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 34px clamp(24px, 5vw, 76px); scroll-behavior: smooth; }
 
@@ -360,6 +364,7 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
   .chat-topbar button.history-toggle { display: flex; }
   .chat-topbar { min-height: 66px; padding: max(12px, env(safe-area-inset-top)) 66px 11px 13px; }
   .chat-topbar b { display: none; }
+  .model-picker select { max-width: 130px; }
   .chat-messages { padding: 24px 15px; }
   .chat-empty { padding: 32px 0 44px; }
   .chat-empty h1 { font-size: clamp(2.2rem, 10vw, 3.6rem); }
@@ -372,8 +377,12 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
   .agent-page__grid article { min-height: 115px; }
 }
 @media (max-width: 480px) {
+  .chat-topbar { gap: 9px; }
   .chat-topbar > div span { font-size: 14px; }
-  .chat-topbar > div small { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-topbar > div small { display: none; }
+  .model-picker { gap: 0; margin-left: auto; padding-left: 7px; }
+  .model-picker > span { display: none; }
+  .model-picker select { max-width: 108px; width: 108px; }
   .chat-empty__mark { height: 82px; width: 82px; }
   .chat-empty p { font-size: 13px; margin-bottom: 27px; }
   .chat-message { gap: 9px; }
