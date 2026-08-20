@@ -118,6 +118,9 @@
               conversation_id: payload.conversation_id || conversationId || null,
               finish_reason: payload.finish_reason,
               completion_tokens: payload.completion_tokens,
+              error_type: payload.error_type,
+              upstream_status: payload.upstream_status,
+              saved: payload.saved,
               message: eventName === 'error' ? payload.message : undefined
             })
           } else if (eventName === 'meta') {
