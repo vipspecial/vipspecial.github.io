@@ -1,2 +1,2 @@
-- [AI 对话](/)
-- [Agent](ai/agent.md)
+- [AI 学习助手](/)
+- [智能助教](ai/agent.md)
