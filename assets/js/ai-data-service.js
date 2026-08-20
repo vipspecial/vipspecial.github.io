@@ -116,6 +116,8 @@
             logEvent(eventName === 'done' ? 'info' : 'warn', 'stream_' + eventName, {
               request_id: requestId,
               conversation_id: payload.conversation_id || conversationId || null,
+              finish_reason: payload.finish_reason,
+              completion_tokens: payload.completion_tokens,
               message: eventName === 'error' ? payload.message : undefined
             })
           } else if (eventName === 'meta') {
