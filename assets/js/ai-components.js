@@ -358,13 +358,18 @@
     }
 
     function fail(message) {
+      while (queue.length) {
+        var queued = queue.shift()
+        renderPiece(queued.kind, queued.text)
+      }
       failed = true
       completed = true
-      queue = []
       if (timer) global.clearTimeout(timer)
       timer = null
       assistant.classList.add('is-error')
-      setRichText(content, message || 'AI 服务暂时不可用')
+      var existing = content.dataset.raw || ''
+      var errorMessage = message || 'AI 服务暂时不可用'
+      setRichText(content, existing ? existing + '\n\n> ' + errorMessage : errorMessage)
       finalize()
     }
 

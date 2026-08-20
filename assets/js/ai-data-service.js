@@ -7,6 +7,12 @@
     : 'https://vipspecial-github-io-vercel.vercel.app'
   var CLIENT_KEY = 'ai-systems:client-id'
 
+  function logEvent(level, eventName, details) {
+    if (!global.console) return
+    var method = global.console[level] || global.console.log
+    method.call(global.console, '[AI Chat] ' + eventName, details || {})
+  }
+
   function clientId() {
     var stored = global.localStorage.getItem(CLIENT_KEY)
     if (stored) return stored
@@ -23,6 +29,7 @@
 
   function request(path, options) {
     var settings = options || {}
+    var safePath = path.split('?')[0]
     return global.fetch(API_BASE + path, {
       method: settings.method || 'GET',
       headers: settings.body ? { 'Content-Type': 'application/json' } : {},
@@ -36,6 +43,14 @@
         }
         return payload
       })
+    }).catch(function (error) {
+      logEvent('error', 'api_request_failed', {
+        method: settings.method || 'GET',
+        path: safePath,
+        status: error.status || 0,
+        message: error.message
+      })
+      throw error
     })
   }
 
@@ -54,6 +69,11 @@
   }
 
   function streamMessage(conversationId, message, onEvent) {
+    var requestId = null
+    logEvent('info', 'stream_requested', {
+      conversation_id: conversationId || null,
+      message_chars: message.length
+    })
     return global.fetch(API_BASE + '/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,6 +83,11 @@
         message: message
       })
     }).then(function (response) {
+      requestId = response.headers.get('X-Request-ID') || requestId
+      logEvent('info', 'stream_response_opened', {
+        request_id: requestId,
+        status: response.status
+      })
       if (!response.ok) {
         return response.json().catch(function () { return {} }).then(function (payload) {
           throw new Error(payload.detail || 'AI 服务请求失败')
@@ -73,6 +98,7 @@
       var reader = response.body.getReader()
       var decoder = new TextDecoder()
       var buffer = ''
+      var terminalEventReceived = false
 
       function emitBlock(block) {
         var eventName = 'message'
@@ -83,8 +109,27 @@
         })
         if (!dataLines.length) return
         try {
-          onEvent(eventName, JSON.parse(dataLines.join('\n')))
+          var payload = JSON.parse(dataLines.join('\n'))
+          if (payload.request_id) requestId = payload.request_id
+          if (eventName === 'done' || eventName === 'error') {
+            terminalEventReceived = true
+            logEvent(eventName === 'done' ? 'info' : 'warn', 'stream_' + eventName, {
+              request_id: requestId,
+              conversation_id: payload.conversation_id || conversationId || null,
+              message: eventName === 'error' ? payload.message : undefined
+            })
+          } else if (eventName === 'meta') {
+            logEvent('info', 'stream_identified', {
+              request_id: requestId,
+              conversation_id: payload.conversation_id
+            })
+          }
+          onEvent(eventName, payload)
         } catch (error) {
+          logEvent('error', 'stream_parse_failed', {
+            request_id: requestId,
+            message: error.message
+          })
           onEvent('error', { message: '流式响应解析失败' })
         }
       }
@@ -92,15 +137,23 @@
       function read() {
         return reader.read().then(function (result) {
           buffer += decoder.decode(result.value || new Uint8Array(), { stream: !result.done })
-          var blocks = buffer.split('\n\n')
+          var blocks = buffer.split(/\r?\n\r?\n/)
           buffer = blocks.pop() || ''
           blocks.forEach(emitBlock)
           if (!result.done) return read()
           if (buffer.trim()) emitBlock(buffer)
+          if (!terminalEventReceived) throw new Error('输出连接意外中断，请重试或发送“继续”')
         })
       }
 
       return read()
+    }).catch(function (error) {
+      logEvent('error', 'stream_failed', {
+        request_id: requestId,
+        conversation_id: conversationId || null,
+        message: error.message
+      })
+      throw error
     })
   }
 
