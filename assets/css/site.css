@@ -42,6 +42,8 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .sidebar-nav > ul > li > a, .sidebar ul li a { align-items: center; border-radius: 8px; color: var(--ink-soft); display: flex; font-size: 13px; font-weight: 550; margin: 0; padding: 11px 12px; transition: background 150ms ease, color 150ms ease; }
 .sidebar ul li a::before { color: var(--muted); content: "○"; font-size: 12px; margin-right: 10px; }
 .sidebar ul li:nth-child(2) a::before { content: "◇"; }
+.sidebar ul li:nth-child(3) a::before { content: "▤"; }
+.sidebar ul li:nth-child(4) a::before { content: "◌"; }
 .sidebar ul li a:hover { background: var(--surface-soft); color: var(--ink); }
 .sidebar ul li.active > a { background: var(--orange-soft); color: var(--orange-dark); font-weight: 650; }
 .sidebar ul li.active > a::before { color: var(--orange); }
