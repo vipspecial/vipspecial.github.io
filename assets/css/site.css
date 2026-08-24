@@ -158,7 +158,9 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .chat-reasoning__content > :first-child { margin-top: 0; }
 .chat-reasoning__content > :last-child { margin-bottom: 0; }
 .reasoning-placeholder { color: var(--muted); }
-.chat-message.is-pending .chat-message__content::after { animation: typing 1s steps(3, end) infinite; color: var(--orange); content: "..."; font-family: var(--mono); letter-spacing: 3px; }
+.chat-processing { align-items: center; color: var(--muted); display: flex; font-family: var(--mono); font-size: 9px; gap: 9px; min-height: 32px; }
+.chat-processing[hidden] { display: none; }
+.chat-processing > i { animation: processing-spin 800ms linear infinite; border: 2px solid var(--orange-soft); border-radius: 50%; border-top-color: var(--orange); height: 14px; width: 14px; }
 .chat-message.is-error .chat-message__content { color: var(--danger); }
 
 .scroll-latest { align-items: center; background: var(--ink); border: 0; border-radius: 999px; bottom: 126px; box-shadow: 0 10px 28px rgba(25, 26, 24, 0.18); color: #fff; cursor: pointer; display: flex; font-size: 9px; gap: 7px; left: 50%; opacity: 0; padding: 8px 12px; pointer-events: none; position: absolute; transform: translate(-50%, 8px); transition: opacity 150ms ease, transform 150ms ease; z-index: 4; }
@@ -218,7 +220,7 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 @keyframes intro-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cursor-blink { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
 @keyframes status-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(241, 90, 36, 0.28); } 50% { box-shadow: 0 0 0 5px rgba(241, 90, 36, 0); } }
-@keyframes typing { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
+@keyframes processing-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 1180px) {
   :root { --sidebar-width: 194px; }

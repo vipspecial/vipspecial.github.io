@@ -164,18 +164,22 @@
     var thought = normalized.reasoning
     var reasoningMarkup = role === 'assistant'
       ? [
-          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending ? ' open' : '', (!pending && !thought) ? ' hidden' : '', '>',
-          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>', pending ? '分析中' : '已完成', '</small><i></i></summary>',
+          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', !thought ? ' hidden' : '', '>',
+          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>已完成</small><i></i></summary>',
           '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">',
-          thought ? renderRichText(thought) : '<span class="reasoning-placeholder">', pending ? '正在分析问题...' : '模型未返回可展示的独立思考内容', '</span>',
+          thought ? renderRichText(thought) : '',
           '</div>',
           '</details>'
         ].join('')
+      : ''
+    var processingMarkup = role === 'assistant' && pending
+      ? '<div class="chat-processing" data-processing role="status"><i></i><span>正在处理</span></div>'
       : ''
     return [
       '<article class="chat-message chat-message--', role, pending ? ' is-pending' : '', '" data-role="', role, '">',
       '<div class="chat-message__avatar">', label, '</div>',
       '<div class="chat-message__body"><span>', role === 'user' ? '你' : 'AI', '</span>',
+      processingMarkup,
       reasoningMarkup,
       '<div class="chat-message__content" data-answer-content data-raw="', escapeHtml(normalized.answer), '">', renderRichText(normalized.answer), '</div></div>',
       '</article>'
@@ -346,6 +350,7 @@
 
   function createStreamRenderer(assistant) {
     var content = assistant.querySelector('[data-answer-content]')
+    var processing = assistant.querySelector('[data-processing]')
     var reasoning = assistant.querySelector('.chat-reasoning')
     var reasoningContent = assistant.querySelector('[data-reasoning-content]')
     var reasoningStatus = assistant.querySelector('[data-reasoning-status]')
@@ -367,6 +372,7 @@
     function finalize() {
       if (!completed || queue.length || timer) return
       assistant.classList.remove('is-pending')
+      if (processing) processing.hidden = true
       reasoning.classList.remove('is-streaming')
       reasoning.open = false
       reasoningStatus.textContent = failed ? '已中止' : elapsedLabel()
@@ -377,6 +383,7 @@
     }
 
     function renderPiece(kind, text) {
+      if (processing) processing.hidden = true
       if (kind === 'reasoning') {
         reasoning.hidden = false
         if (!hasReasoning) {
