@@ -48,10 +48,20 @@
       '<div class="chat-composer__box">',
       '<textarea name="message" rows="1" maxlength="6000" placeholder="输入问题，Enter 发送，Shift + Enter 换行" aria-label="消息"></textarea>',
       '<div class="chat-composer__actions">',
-      '<label class="model-picker"><span>模型</span><select data-model-select aria-label="选择 AI 模型">',
+      '<div class="model-picker" data-model-picker>',
+      '<select data-model-select aria-hidden="true" tabindex="-1" hidden>',
       '<option value="glm-4-flash">GLM-4 Flash</option>',
       '<option value="qwen/qwen3.6-27b">Qwen 3.6</option>',
-      '</select></label>',
+      '</select>',
+      '<button class="model-picker__trigger" type="button" data-model-trigger aria-label="选择 AI 模型" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-picker-menu">',
+      '<span class="model-picker__dot"></span><strong data-model-label>GLM-4 Flash</strong><i></i>',
+      '</button>',
+      '<div class="model-picker__menu" id="model-picker-menu" data-model-menu role="listbox" hidden>',
+      '<span class="model-picker__menu-title">选择回答模型</span>',
+      '<button type="button" data-model-option data-model-value="glm-4-flash" data-model-name="GLM-4 Flash" role="option" aria-selected="true"><span><strong>GLM-4 Flash</strong><small>智谱 AI</small></span><i>✓</i></button>',
+      '<button type="button" data-model-option data-model-value="qwen/qwen3.6-27b" data-model-name="Qwen 3.6" role="option" aria-selected="false"><span><strong>Qwen 3.6</strong><small>Groq</small></span><i>✓</i></button>',
+      '</div>',
+      '</div>',
       '<button type="submit" aria-label="发送消息"><span>↑</span></button>',
       '</div>',
       '</div>',
@@ -199,6 +209,7 @@
   function loadModels() {
     if (!mountedElement) return Promise.resolve()
     var select = mountedElement.querySelector('[data-model-select]')
+    var menu = mountedElement.querySelector('[data-model-menu]')
     return global.AiChatApi.models().then(function (payload) {
       var models = payload.models || []
       if (!models.length || !select.isConnected) return
@@ -209,10 +220,45 @@
       var available = models.some(function (model) { return model.id === selectedModel })
       selectedModel = available ? selectedModel : (payload.default_model || models[0].id)
       select.value = selectedModel
+      menu.innerHTML = '<span class="model-picker__menu-title">选择回答模型</span>' + models.map(function (model) {
+        return '<button type="button" data-model-option data-model-value="' + escapeHtml(model.id) +
+          '" data-model-name="' + escapeHtml(model.name) + '" role="option" aria-selected="false">' +
+          '<span><strong>' + escapeHtml(model.name) + '</strong><small>' + escapeHtml(model.provider) +
+          '</small></span><i>✓</i></button>'
+      }).join('')
       global.localStorage.setItem(MODEL_KEY, selectedModel)
+      syncModelPicker()
     }).catch(function () {
-      if (select.isConnected) select.value = selectedModel
+      if (select.isConnected) {
+        select.value = selectedModel
+        syncModelPicker()
+      }
     })
+  }
+
+  function syncModelPicker() {
+    if (!mountedElement) return
+    var select = mountedElement.querySelector('[data-model-select]')
+    var label = mountedElement.querySelector('[data-model-label]')
+    var options = mountedElement.querySelectorAll('[data-model-option]')
+    var activeName = ''
+    options.forEach(function (option) {
+      var active = option.getAttribute('data-model-value') === selectedModel
+      option.setAttribute('aria-selected', String(active))
+      if (active) activeName = option.getAttribute('data-model-name') || ''
+    })
+    if (select) select.value = selectedModel
+    if (label) label.textContent = activeName || selectedModel
+  }
+
+  function closeModelPicker() {
+    if (!mountedElement) return
+    var picker = mountedElement.querySelector('[data-model-picker]')
+    var trigger = mountedElement.querySelector('[data-model-trigger]')
+    var menu = mountedElement.querySelector('[data-model-menu]')
+    if (picker) picker.classList.remove('is-open')
+    if (trigger) trigger.setAttribute('aria-expanded', 'false')
+    if (menu) menu.hidden = true
   }
 
   function closeHistory() {
@@ -412,9 +458,12 @@
     sending = true
     var form = mountedElement.querySelector('[data-chat-form]')
     var modelSelect = mountedElement.querySelector('[data-model-select]')
+    var modelTrigger = mountedElement.querySelector('[data-model-trigger]')
     selectedModel = modelSelect.value || selectedModel
     form.classList.add('is-sending')
     modelSelect.disabled = true
+    modelTrigger.disabled = true
+    closeModelPicker()
     textarea.value = ''
     resizeTextarea(textarea)
 
@@ -456,6 +505,7 @@
       sending = false
       form.classList.remove('is-sending')
       modelSelect.disabled = false
+      modelTrigger.disabled = false
       loadConversations()
       textarea.focus()
     })
@@ -466,6 +516,7 @@
       if (!event.target.matches('[data-model-select]')) return
       selectedModel = event.target.value
       global.localStorage.setItem(MODEL_KEY, selectedModel)
+      syncModelPicker()
     })
 
     element.addEventListener('submit', function (event) {
@@ -487,6 +538,7 @@
 
     element.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
+        closeModelPicker()
         closeHistory()
         return
       }
@@ -498,6 +550,28 @@
     })
 
     element.addEventListener('click', function (event) {
+      var modelOption = event.target.closest('[data-model-option]')
+      if (modelOption) {
+        selectedModel = modelOption.getAttribute('data-model-value')
+        global.localStorage.setItem(MODEL_KEY, selectedModel)
+        syncModelPicker()
+        closeModelPicker()
+        return
+      }
+
+      var modelTrigger = event.target.closest('[data-model-trigger]')
+      if (modelTrigger) {
+        var picker = element.querySelector('[data-model-picker]')
+        var menu = element.querySelector('[data-model-menu]')
+        var willOpen = !picker.classList.contains('is-open')
+        picker.classList.toggle('is-open', willOpen)
+        modelTrigger.setAttribute('aria-expanded', String(willOpen))
+        menu.hidden = !willOpen
+        return
+      }
+
+      if (!event.target.closest('[data-model-picker]')) closeModelPicker()
+
       var prompt = event.target.closest('[data-prompt]')
       if (prompt) {
         var textarea = element.querySelector('textarea[name="message"]')
@@ -551,6 +625,7 @@
     element.innerHTML = shellMarkup()
     bindEvents(element)
     element.querySelector('[data-model-select]').value = selectedModel
+    syncModelPicker()
     loadModels()
     loadConversations()
   }
