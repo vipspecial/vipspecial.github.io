@@ -156,21 +156,25 @@
     ].join('')
   }
 
+  function reasoningMarkup(thought, status, open) {
+    return [
+      '<details class="chat-reasoning', thought ? ' has-content' : '', '"', open ? ' open' : '', '>',
+      '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>', escapeHtml(status), '</small><i></i></summary>',
+      '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">',
+      thought ? renderRichText(thought) : '',
+      '</div>',
+      '</details>'
+    ].join('')
+  }
+
   function messageMarkup(role, content, pending, reasoning) {
     var label = role === 'user' ? 'YOU' : 'AI'
     var normalized = role === 'assistant'
       ? normalizeAssistantContent(content, reasoning)
       : { answer: String(content || ''), reasoning: '' }
     var thought = normalized.reasoning
-    var reasoningMarkup = role === 'assistant'
-      ? [
-          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', !thought ? ' hidden' : '', '>',
-          '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>已完成</small><i></i></summary>',
-          '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">',
-          thought ? renderRichText(thought) : '',
-          '</div>',
-          '</details>'
-        ].join('')
+    var thoughtMarkup = role === 'assistant' && thought
+      ? reasoningMarkup(thought, '已完成', false)
       : ''
     var processingMarkup = role === 'assistant' && pending
       ? '<div class="chat-processing" data-processing role="status"><i></i><span>正在处理</span></div>'
@@ -180,7 +184,7 @@
       '<div class="chat-message__avatar">', label, '</div>',
       '<div class="chat-message__body"><span>', role === 'user' ? '你' : 'AI', '</span>',
       processingMarkup,
-      reasoningMarkup,
+      thoughtMarkup,
       '<div class="chat-message__content" data-answer-content data-raw="', escapeHtml(normalized.answer), '">', renderRichText(normalized.answer), '</div></div>',
       '</article>'
     ].join('')
@@ -364,6 +368,14 @@
     var resolveDone
     var done = new Promise(function (resolve) { resolveDone = resolve })
 
+    function ensureReasoning() {
+      if (reasoning) return
+      content.insertAdjacentHTML('beforebegin', reasoningMarkup('', '分析中', true))
+      reasoning = assistant.querySelector('.chat-reasoning')
+      reasoningContent = assistant.querySelector('[data-reasoning-content]')
+      reasoningStatus = assistant.querySelector('[data-reasoning-status]')
+    }
+
     function elapsedLabel() {
       var seconds = Math.max(0.1, (global.performance.now() - startedAt) / 1000)
       return '已思考 ' + seconds.toFixed(seconds < 10 ? 1 : 0) + 's'
@@ -373,11 +385,10 @@
       if (!completed || queue.length || timer) return
       assistant.classList.remove('is-pending')
       if (processing) processing.hidden = true
-      reasoning.classList.remove('is-streaming')
-      reasoning.open = false
-      reasoningStatus.textContent = failed ? '已中止' : elapsedLabel()
-      if (!hasReasoning && !reasoningContent.dataset.raw) {
-        reasoning.hidden = true
+      if (reasoning) {
+        reasoning.classList.remove('is-streaming')
+        reasoning.open = false
+        reasoningStatus.textContent = failed ? '已中止' : elapsedLabel()
       }
       resolveDone()
     }
@@ -385,7 +396,7 @@
     function renderPiece(kind, text) {
       if (processing) processing.hidden = true
       if (kind === 'reasoning') {
-        reasoning.hidden = false
+        ensureReasoning()
         if (!hasReasoning) {
           hasReasoning = true
           reasoningContent.dataset.raw = ''
@@ -398,9 +409,11 @@
         if (!answerStarted) {
           answerStarted = true
           assistant.classList.remove('is-pending')
-          reasoning.open = false
-          reasoning.classList.remove('is-streaming')
-          reasoningStatus.textContent = elapsedLabel()
+          if (reasoning) {
+            reasoning.open = false
+            reasoning.classList.remove('is-streaming')
+            reasoningStatus.textContent = elapsedLabel()
+          }
         }
         setRichText(content, content.dataset.raw + text)
       }
