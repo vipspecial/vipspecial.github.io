@@ -38,15 +38,15 @@
       '</aside>',
       '<div class="chat-main" role="main">',
       '<header class="chat-topbar">',
-      '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史" aria-controls="chat-history-panel" aria-expanded="false">☰</button>',
-      '<div><span>AI 对话</span><small>选择模型，开始对话</small></div>',
-      '<b><i></i> 在线</b>',
+      '<button class="history-toggle" type="button" data-history-toggle aria-label="显示历史" aria-controls="chat-history-panel" aria-expanded="false">↺</button>',
+      '<div class="chat-topbar__title"><span>AI 对话</span><small>实时流式回答</small></div>',
+      '<b class="chat-status"><i></i> READY</b>',
       '</header>',
       '<div class="chat-messages" data-chat-messages>', emptyMarkup(), '</div>',
       '<button class="scroll-latest" type="button" data-scroll-bottom>回到最新 <span>↓</span></button>',
       '<form class="chat-composer" data-chat-form>',
       '<div class="chat-composer__box">',
-      '<textarea name="message" rows="1" maxlength="6000" placeholder="写下你的问题，按 Enter 发送..." aria-label="消息"></textarea>',
+      '<textarea name="message" rows="1" maxlength="6000" placeholder="输入问题，Enter 发送，Shift + Enter 换行" aria-label="消息"></textarea>',
       '<div class="chat-composer__actions">',
       '<label class="model-picker"><span>模型</span><select data-model-select aria-label="选择 AI 模型">',
       '<option value="glm-4-flash">GLM-4 Flash</option>',
@@ -55,7 +55,7 @@
       '<button type="submit" aria-label="发送消息"><span>↑</span></button>',
       '</div>',
       '</div>',
-      '<p>AI 可能会犯错，请核对重要信息 · 会话记录保存在匿名会话中</p>',
+      '<p>回答仅供参考，请核对重要信息</p>',
       '</form>',
       '</div>',
       '</section>'
@@ -134,13 +134,13 @@
     return [
       '<div class="chat-empty">',
       '<div class="chat-empty__mark"><span>AI</span><i></i></div>',
-      '<span class="chat-empty__eyebrow">AI WORKSPACE</span>',
-      '<h1>有什么可以帮你？</h1>',
-      '<p>选择一个模型，直接描述你的问题。</p>',
+      '<span class="chat-empty__eyebrow"><i></i> READY FOR INPUT</span>',
+      '<h1>今天，想解决<br><em>什么问题</em><span class="chat-empty__cursor" aria-hidden="true"></span></h1>',
+      '<p>直接描述目标或贴入内容，AI 会结合当前会话继续回答。</p>',
       '<div class="chat-prompts">',
-      '<button type="button" data-prompt="帮我总结并提炼这段内容的重点">总结内容 <i>↗</i></button>',
-      '<button type="button" data-prompt="帮我分析这个问题并给出清晰的解决方案">分析问题 <i>↗</i></button>',
-      '<button type="button" data-prompt="帮我把这个想法整理成可执行的步骤">整理思路 <i>↗</i></button>',
+      '<button type="button" data-prompt="帮我总结并提炼这段内容的重点"><span>总结内容<small>提炼关键信息</small></span><i>↗</i></button>',
+      '<button type="button" data-prompt="帮我分析这个问题并给出清晰的解决方案"><span>分析问题<small>拆解并给出方案</small></span><i>↗</i></button>',
+      '<button type="button" data-prompt="帮我把这个想法整理成可执行的步骤"><span>整理思路<small>转换为行动步骤</small></span><i>↗</i></button>',
       '</div>',
       '</div>'
     ].join('')
@@ -154,7 +154,7 @@
     var thought = normalized.reasoning
     var reasoningMarkup = role === 'assistant'
       ? [
-          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending ? ' open' : '', '>',
+          '<details class="chat-reasoning', thought ? ' has-content' : '', '"', pending ? ' open' : '', (!pending && !thought) ? ' hidden' : '', '>',
           '<summary><span class="reasoning-icon">✦</span><span class="reasoning-title">思考过程</span><small data-reasoning-status>', pending ? '分析中' : '已完成', '</small><i></i></summary>',
           '<div class="chat-reasoning__content" data-reasoning-content data-raw="', escapeHtml(thought), '">',
           thought ? renderRichText(thought) : '<span class="reasoning-placeholder">', pending ? '正在分析问题...' : '模型未返回可展示的独立思考内容', '</span>',
@@ -325,13 +325,14 @@
       reasoning.open = false
       reasoningStatus.textContent = failed ? '已中止' : elapsedLabel()
       if (!hasReasoning && !reasoningContent.dataset.raw) {
-        reasoningContent.innerHTML = '<span class="reasoning-placeholder">模型未返回可展示的独立思考内容</span>'
+        reasoning.hidden = true
       }
       resolveDone()
     }
 
     function renderPiece(kind, text) {
       if (kind === 'reasoning') {
+        reasoning.hidden = false
         if (!hasReasoning) {
           hasReasoning = true
           reasoningContent.dataset.raw = ''
