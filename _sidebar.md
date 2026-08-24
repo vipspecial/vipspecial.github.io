@@ -2,3 +2,4 @@
 - [Agent](ai/agent.md)
 - [RAG 知识库](ai/rag.md)
 - [AI 客服](ai/customer-service.md)
+- [垂直模型训练](ai/model-training.md)
