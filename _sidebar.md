@@ -8,3 +8,5 @@
   - [操作记录](notes/customer-service.md)
 - [垂直模型训练](ai/model-training.md)
   - [操作记录](notes/model-training.md)
+- [Skill 创建方法](ai/skill-creation.md)
+  - [操作记录](notes/skill-creation.md)
