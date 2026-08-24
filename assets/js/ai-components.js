@@ -5,6 +5,10 @@
   var activeConversationId = null
   var sending = false
   var autoFollow = true
+  var conversationLoadSequence = 0
+  var messageCache = Object.create(null)
+  var messageCacheOrder = []
+  var messageLoads = Object.create(null)
   var MODEL_KEY = 'ai-systems:selected-model:v2'
   var DEFAULT_MODEL = 'glm-4-flash'
   var selectedModel = global.localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL
@@ -204,11 +208,61 @@
     }).join('')
   }
 
+  function cacheMessages(conversationId, items) {
+    messageCache[conversationId] = items
+    messageCacheOrder = messageCacheOrder.filter(function (id) { return id !== conversationId })
+    messageCacheOrder.push(conversationId)
+    while (messageCacheOrder.length > 8) {
+      delete messageCache[messageCacheOrder.shift()]
+    }
+  }
+
+  function forgetCachedMessages(conversationId) {
+    delete messageCache[conversationId]
+    delete messageLoads[conversationId]
+    messageCacheOrder = messageCacheOrder.filter(function (id) { return id !== conversationId })
+  }
+
+  function loadConversationMessages(conversationId) {
+    if (messageCache[conversationId]) return Promise.resolve(messageCache[conversationId])
+    if (messageLoads[conversationId]) return messageLoads[conversationId]
+    messageLoads[conversationId] = global.AiChatApi.messages(conversationId).then(function (payload) {
+      var messages = payload.messages || []
+      cacheMessages(conversationId, messages)
+      delete messageLoads[conversationId]
+      return messages
+    }).catch(function (error) {
+      delete messageLoads[conversationId]
+      throw error
+    })
+    return messageLoads[conversationId]
+  }
+
+  function prefetchRecentConversations(items) {
+    items.slice(0, 3).forEach(function (item) {
+      loadConversationMessages(item.id).catch(function () { /* Retry when opened. */ })
+    })
+  }
+
+  function markActiveConversation() {
+    if (!mountedElement) return
+    mountedElement.querySelectorAll('[data-conversation-id]').forEach(function (item) {
+      item.classList.toggle(
+        'is-active',
+        item.getAttribute('data-conversation-id') === activeConversationId
+      )
+    })
+  }
+
   function loadConversations() {
     if (!mountedElement) return Promise.resolve()
     var list = mountedElement.querySelector('[data-conversation-list]')
     return global.AiChatApi.conversations().then(function (payload) {
-      if (list.isConnected) list.innerHTML = listMarkup(payload.conversations || [])
+      var conversations = payload.conversations || []
+      if (list.isConnected) {
+        list.innerHTML = listMarkup(conversations)
+        prefetchRecentConversations(conversations)
+      }
     }).catch(function () {
       if (list.isConnected) list.innerHTML = '<div class="history-error">历史记录暂时不可用</div>'
     })
@@ -290,24 +344,38 @@
     scrollToBottom(true)
   }
 
+  function renderConversationLoading() {
+    var container = mountedElement.querySelector('[data-chat-messages]')
+    container.innerHTML = '<div class="conversation-loading" role="status"><i></i><span>正在读取会话</span></div>'
+  }
+
   function openConversation(conversationId) {
     if (sending) return
+    var loadSequence = ++conversationLoadSequence
     activeConversationId = conversationId
     closeHistory()
-    return global.AiChatApi.messages(conversationId).then(function (payload) {
-      renderMessages(payload.messages || [])
-      return loadConversations()
+    markActiveConversation()
+    if (messageCache[conversationId]) {
+      renderMessages(messageCache[conversationId])
+      return Promise.resolve()
+    }
+    renderConversationLoading()
+    return loadConversationMessages(conversationId).then(function (messages) {
+      if (loadSequence !== conversationLoadSequence || activeConversationId !== conversationId) return
+      renderMessages(messages)
     }).catch(function () {
+      if (loadSequence !== conversationLoadSequence || activeConversationId !== conversationId) return
       showNotice('无法读取该对话，请稍后重试。')
     })
   }
 
   function newChat() {
     if (sending) return
+    conversationLoadSequence += 1
     activeConversationId = null
     closeHistory()
+    markActiveConversation()
     renderMessages([])
-    loadConversations()
     var input = mountedElement.querySelector('textarea[name="message"]')
     if (input) input.focus()
   }
@@ -499,6 +567,7 @@
     var streamRequest = global.AiChatApi.streamMessage(activeConversationId, message, selectedModel, function (eventName, payload) {
       if (eventName === 'meta') {
         activeConversationId = payload.conversation_id
+        forgetCachedMessages(activeConversationId)
         loadConversations()
       }
       if (eventName === 'delta') {
@@ -508,9 +577,11 @@
         streamRenderer.enqueue('reasoning', payload.content || '')
       }
       if (eventName === 'done') {
+        forgetCachedMessages(activeConversationId)
         streamRenderer.complete()
       }
       if (eventName === 'error') {
+        forgetCachedMessages(activeConversationId)
         streamRenderer.fail(payload.message || 'AI 服务暂时不可用')
       }
     })
@@ -630,6 +701,7 @@
       var id = item.getAttribute('data-conversation-id')
       if (event.target.closest('[data-delete-conversation]')) {
         global.AiChatApi.removeConversation(id).then(function () {
+          forgetCachedMessages(id)
           if (activeConversationId === id) newChat()
           return loadConversations()
         }).catch(function () { showNotice('删除失败，请稍后重试。') })
