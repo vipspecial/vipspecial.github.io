@@ -10,3 +10,5 @@
   - [操作记录](notes/model-training.md)
 - [Skill 创建方法](ai/skill-creation.md)
   - [操作记录](notes/skill-creation.md)
+- [MCP 创建方法](ai/mcp-creation.md)
+  - [操作记录](notes/mcp-creation.md)
