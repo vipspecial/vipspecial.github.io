@@ -135,7 +135,15 @@ body:not(.is-chat-route) .markdown-section > p, body:not(.is-chat-route) .markdo
 .chat-message__body { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .chat-message--assistant .chat-message__body { border-left: 2px solid var(--orange-soft); padding-left: 14px; }
 .chat-message--user .chat-message__body { align-items: flex-end; }
-.chat-message__body > span { color: var(--muted); display: block; font-family: var(--mono); font-size: 8px; letter-spacing: 0.07em; margin-bottom: 7px; text-transform: uppercase; }
+.chat-message__meta { align-items: center; display: flex; gap: 10px; margin-bottom: 7px; }
+.chat-message__meta > span { color: var(--muted); font-family: var(--mono); font-size: 8px; letter-spacing: 0.07em; text-transform: uppercase; }
+.message-speak { align-items: center; appearance: none; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--muted); cursor: pointer; display: inline-flex; font-family: var(--mono); font-size: 8px; gap: 5px; letter-spacing: 0.07em; padding: 2px 7px; transition: border-color 150ms ease, color 150ms ease; }
+.message-speak:hover { border-color: var(--line); color: var(--ink-soft); }
+.message-speak i { border: 1px solid currentColor; border-radius: 2px; display: inline-block; height: 9px; width: 12px; }
+.message-speak i::before { background: currentColor; content: ""; display: block; height: 3px; margin: 2px 2px 0; }
+.message-speak.is-speaking { border-color: #f0c4ab; color: var(--orange); }
+.message-speak.is-speaking i { animation: speak-wave 900ms ease-in-out infinite; }
+@keyframes speak-wave { 0%, 100% { transform: scaleY(0.6); } 50% { transform: scaleY(1); } }
 .chat-message__content { color: var(--ink); font-size: 13px; line-height: 1.82; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
 .chat-message--assistant .chat-message__content { width: 100%; }
 .chat-message--user .chat-message__content { background: var(--orange-soft); border: 1px solid #f7d9c8; border-radius: 12px 4px 12px 12px; display: inline-block; max-width: min(78%, 680px); padding: 10px 14px; }
