@@ -14,3 +14,4 @@
   - [操作记录](notes/mcp-creation.md)
 - [AI 工具集合](ai/toolkit.md)
   - [操作记录](notes/toolkit.md)
+- [开源项目 · 拿了桔子跑啊](https://vipspecial.github.io/knowledge-is-power/)

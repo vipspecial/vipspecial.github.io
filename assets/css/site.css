@@ -57,6 +57,8 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .markdown-section { color: var(--ink-soft); max-width: none; padding: 22px; }
 .markdown-section > *:first-child { margin-top: 0; }
 .site-footer { color: var(--muted); display: flex; font-family: var(--mono); font-size: 9px; justify-content: space-between; margin: 14px auto 0; max-width: 1200px; padding: 0 5px; }
+.site-footer a { color: var(--muted); text-decoration: none; transition: color 160ms ease; }
+.site-footer a:hover { color: var(--orange-dark); }
 [data-chat-app] { height: 100%; min-height: 0; min-width: 0; }
 
 /* Markdown notes */
