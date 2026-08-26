@@ -107,7 +107,7 @@
       ? (streamSpeechEnabled ? '关闭边输出边朗读' : '开启边输出边朗读')
       : '当前浏览器不支持语音朗读'
     var label = button.querySelector('span')
-    if (label) label.textContent = supported && streamSpeechEnabled ? '朗读已开' : '边写边读'
+    if (label) label.textContent = supported && streamSpeechEnabled ? '播报已开' : '语音播报'
   }
 
   function escapeHtml(value) {
@@ -162,7 +162,7 @@
       '<button type="button" data-model-option data-model-value="qwen/qwen3.6-27b" data-model-name="Qwen3.6-27B" role="option" aria-selected="false"><span><strong>Qwen3.6-27B</strong><small>Groq</small></span><i>✓</i></button>',
       '</div>',
       '</div>',
-      '<button class="stream-speech-toggle" type="button" data-stream-speech aria-label="边输出边朗读" aria-pressed="false"><i></i><span>边写边读</span></button>',
+      '<button class="stream-speech-toggle" type="button" data-stream-speech aria-label="AI 回答语音播报" aria-pressed="false"><i></i><span>语音播报</span></button>',
       '</div>',
       '<button type="submit" aria-label="发送消息"><span>↑</span></button>',
       '</div>',
