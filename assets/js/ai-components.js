@@ -10,10 +10,12 @@
   var messageCacheOrder = []
   var messageLoads = Object.create(null)
   var MODEL_KEY = 'ai-systems:selected-model:v2'
+  var SPEECH_KEY = 'ai-systems:stream-speech:v1'
   var DEFAULT_MODEL = 'glm-4-flash'
   var selectedModel = global.localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL
   var speechVoice = null
-  var speechTarget = null
+  var streamSpeechEnabled = global.localStorage.getItem(SPEECH_KEY) === 'true'
+  var streamSpeechBuffer = ''
 
   function pickChineseVoice() {
     if (!global.speechSynthesis) return null
@@ -36,48 +38,76 @@
 
   function stopSpeaking() {
     if (global.speechSynthesis) global.speechSynthesis.cancel()
-    if (speechTarget) {
-      speechTarget.classList.remove('is-speaking')
-      var label = speechTarget.querySelector('span')
-      if (label) label.textContent = '朗读'
-      speechTarget = null
-    }
+    streamSpeechBuffer = ''
   }
 
-  function speakAnswer(button) {
-    if (!global.speechSynthesis) {
-      showNotice('当前浏览器不支持语音朗读。')
-      return
-    }
-    var isSame = speechTarget === button
-    stopSpeaking()
-    if (isSame) return
+  function normalizeSpeechText(value) {
+    return String(value || '')
+      .replace(/```[\s\S]*?```/g, ' 代码块 ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/[#>*_~|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
 
-    var content = button.closest('.chat-message__body').querySelector('[data-answer-content]')
-    var text = (content.dataset.raw || content.textContent || '').replace(/[#*`>~-]/g, '').trim()
+  function speakSegment(value) {
+    if (!streamSpeechEnabled || !global.speechSynthesis) return
+    var text = normalizeSpeechText(value)
     if (!text) return
-
     var utterance = new global.SpeechSynthesisUtterance(text)
     utterance.lang = 'zh-CN'
     if (speechVoice || pickChineseVoice()) {
       utterance.voice = speechVoice || pickChineseVoice()
     }
     utterance.rate = 1
-    speechTarget = button
-    button.classList.add('is-speaking')
-    var speakLabel = button.querySelector('span')
-    if (speakLabel) speakLabel.textContent = '停止'
-    utterance.onend = function () {
-      button.classList.remove('is-speaking')
-      if (speakLabel) speakLabel.textContent = '朗读'
-      if (speechTarget === button) speechTarget = null
-    }
-    utterance.onerror = function () {
-      button.classList.remove('is-speaking')
-      if (speakLabel) speakLabel.textContent = '朗读'
-      if (speechTarget === button) speechTarget = null
-    }
     global.speechSynthesis.speak(utterance)
+  }
+
+  function queueStreamSpeech(value, force) {
+    if (!streamSpeechEnabled || !global.speechSynthesis) {
+      streamSpeechBuffer = ''
+      return
+    }
+    streamSpeechBuffer += String(value || '')
+    while (streamSpeechBuffer) {
+      var boundary = streamSpeechBuffer.search(/[。！？!?；;\n]/)
+      if (boundary >= 0) {
+        speakSegment(streamSpeechBuffer.slice(0, boundary + 1))
+        streamSpeechBuffer = streamSpeechBuffer.slice(boundary + 1)
+        continue
+      }
+      if (force) {
+        speakSegment(streamSpeechBuffer)
+        streamSpeechBuffer = ''
+        break
+      }
+      if (streamSpeechBuffer.length >= 140) {
+        var splitAt = streamSpeechBuffer.lastIndexOf(' ', 120)
+        splitAt = splitAt > 40 ? splitAt : 120
+        speakSegment(streamSpeechBuffer.slice(0, splitAt))
+        streamSpeechBuffer = streamSpeechBuffer.slice(splitAt)
+        continue
+      }
+      break
+    }
+  }
+
+  function syncSpeechToggle() {
+    if (!mountedElement) return
+    var button = mountedElement.querySelector('[data-stream-speech]')
+    if (!button) return
+    var supported = Boolean(global.speechSynthesis && global.SpeechSynthesisUtterance)
+    button.disabled = !supported
+    button.classList.toggle('is-active', supported && streamSpeechEnabled)
+    button.setAttribute('aria-pressed', String(supported && streamSpeechEnabled))
+    button.title = supported
+      ? (streamSpeechEnabled ? '关闭边输出边朗读' : '开启边输出边朗读')
+      : '当前浏览器不支持语音朗读'
+    var label = button.querySelector('span')
+    if (label) label.textContent = supported && streamSpeechEnabled ? '朗读已开' : '边写边读'
   }
 
   function escapeHtml(value) {
@@ -117,6 +147,7 @@
       '<div class="chat-composer__box">',
       '<textarea name="message" rows="1" maxlength="6000" placeholder="输入问题，Enter 发送，Shift + Enter 换行" aria-label="消息"></textarea>',
       '<div class="chat-composer__actions">',
+      '<div class="composer-tools">',
       '<div class="model-picker" data-model-picker>',
       '<select data-model-select aria-hidden="true" tabindex="-1" hidden>',
       '<option value="glm-4-flash">GLM-4 Flash</option>',
@@ -130,6 +161,8 @@
       '<button type="button" data-model-option data-model-value="glm-4-flash" data-model-name="GLM-4 Flash" role="option" aria-selected="true"><span><strong>GLM-4 Flash</strong><small>智谱 AI</small></span><i>✓</i></button>',
       '<button type="button" data-model-option data-model-value="qwen/qwen3.6-27b" data-model-name="Qwen3.6-27B" role="option" aria-selected="false"><span><strong>Qwen3.6-27B</strong><small>Groq</small></span><i>✓</i></button>',
       '</div>',
+      '</div>',
+      '<button class="stream-speech-toggle" type="button" data-stream-speech aria-label="边输出边朗读" aria-pressed="false"><i></i><span>边写边读</span></button>',
       '</div>',
       '<button type="submit" aria-label="发送消息"><span>↑</span></button>',
       '</div>',
@@ -246,13 +279,10 @@
     var processingMarkup = role === 'assistant' && pending
       ? '<div class="chat-processing" data-processing role="status"><i></i><span>正在处理</span></div>'
       : ''
-    var speakMarkup = role === 'assistant' && !pending
-      ? '<button type="button" class="message-speak" data-speak aria-label="朗读这条回答" title="朗读 / 停止"><i></i><span>朗读</span></button>'
-      : ''
     return [
       '<article class="chat-message chat-message--', role, pending ? ' is-pending' : '', '" data-role="', role, '">',
       '<div class="chat-message__avatar">', label, '</div>',
-      '<div class="chat-message__body"><div class="chat-message__meta"><span>', role === 'user' ? '你' : 'AI', '</span>', speakMarkup, '</div>',
+      '<div class="chat-message__body"><div class="chat-message__meta"><span>', role === 'user' ? '你' : 'AI', '</span></div>',
       processingMarkup,
       thoughtMarkup,
       '<div class="chat-message__content" data-answer-content data-raw="', escapeHtml(normalized.answer), '">', renderRichText(normalized.answer), '</div></div>',
@@ -417,6 +447,7 @@
 
   function openConversation(conversationId) {
     if (sending) return
+    stopSpeaking()
     var loadSequence = ++conversationLoadSequence
     activeConversationId = conversationId
     closeHistory()
@@ -437,6 +468,7 @@
 
   function newChat() {
     if (sending) return
+    stopSpeaking()
     conversationLoadSequence += 1
     activeConversationId = null
     closeHistory()
@@ -519,12 +551,7 @@
       if (!completed || queue.length || timer) return
       assistant.classList.remove('is-pending')
       if (processing) processing.hidden = true
-      if (!assistant.querySelector('[data-speak]')) {
-        var meta = assistant.querySelector('.chat-message__meta')
-        if (meta) {
-          meta.insertAdjacentHTML('beforeend', '<button type="button" class="message-speak" data-speak aria-label="朗读这条回答" title="朗读 / 停止"><i></i><span>朗读</span></button>')
-        }
-      }
+      queueStreamSpeech('', true)
       if (reasoning) {
         reasoning.classList.remove('is-streaming')
         reasoning.open = false
@@ -556,6 +583,7 @@
           }
         }
         setRichText(content, content.dataset.raw + text)
+        queueStreamSpeech(text, false)
       }
       scrollToBottom()
     }
@@ -615,6 +643,7 @@
     var message = textarea.value.trim()
     if (!message || sending) return
 
+    stopSpeaking()
     sending = true
     var form = mountedElement.querySelector('[data-chat-form]')
     var modelSelect = mountedElement.querySelector('[data-model-select]')
@@ -713,9 +742,17 @@
     })
 
     element.addEventListener('click', function (event) {
-      var speakButton = event.target.closest('[data-speak]')
-      if (speakButton) {
-        speakAnswer(speakButton)
+      var speechToggle = event.target.closest('[data-stream-speech]')
+      if (speechToggle) {
+        if (!global.speechSynthesis || !global.SpeechSynthesisUtterance) {
+          showNotice('当前浏览器不支持语音朗读。')
+          return
+        }
+        streamSpeechEnabled = !streamSpeechEnabled
+        global.localStorage.setItem(SPEECH_KEY, String(streamSpeechEnabled))
+        if (!streamSpeechEnabled) stopSpeaking()
+        else initSpeechVoices()
+        syncSpeechToggle()
         return
       }
 
@@ -796,6 +833,7 @@
     initSpeechVoices()
     element.innerHTML = shellMarkup()
     bindEvents(element)
+    syncSpeechToggle()
     element.querySelector('[data-model-select]').value = selectedModel
     syncModelPicker()
     loadModels()

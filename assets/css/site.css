@@ -162,12 +162,6 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .chat-message--user .chat-message__body { align-items: flex-end; }
 .chat-message__meta { align-items: center; display: flex; gap: 10px; margin-bottom: 8px; }
 .chat-message__meta > span { color: var(--muted); font-size: 9px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
-.message-speak { align-items: center; appearance: none; background: transparent; border: 1px solid transparent; border-radius: 7px; color: var(--muted); cursor: pointer; display: inline-flex; font-size: 9px; gap: 5px; padding: 3px 7px; }
-.message-speak:hover { background: var(--surface-soft); border-color: var(--line); color: var(--ink-soft); }
-.message-speak i { border: 1px solid currentColor; border-radius: 3px; display: inline-block; height: 10px; width: 13px; }
-.message-speak i::before { background: currentColor; content: ""; display: block; height: 3px; margin: 2px 2px 0; }
-.message-speak.is-speaking { border-color: #f0c4ab; color: var(--orange); }
-.message-speak.is-speaking i { animation: speak-wave 900ms ease-in-out infinite; }
 .chat-message__content { color: var(--ink); font-size: 14px; line-height: 1.82; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
 .chat-message--assistant .chat-message__content { width: 100%; }
 .chat-message--user .chat-message__content { background: var(--orange); border: 1px solid var(--orange); border-radius: 16px 5px 16px 16px; box-shadow: 0 8px 20px rgba(181, 79, 39, 0.14); color: #fff; display: inline-block; max-width: min(78%, 680px); padding: 11px 15px; }
@@ -222,8 +216,9 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .chat-composer textarea { background: transparent; border: 0; color: var(--ink); font-size: 13px; line-height: 1.65; max-height: 160px; min-height: 36px; outline: 0; overflow-y: auto; padding: 4px 5px; resize: none; width: 100%; }
 .chat-composer textarea::placeholder { color: #aa998d; }
 .chat-composer__actions { align-items: center; display: flex; justify-content: space-between; min-width: 0; width: 100%; }
-.model-picker { max-width: calc(100% - 54px); position: relative; }
-.model-picker__trigger { align-items: center; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); cursor: pointer; display: flex; gap: 8px; height: 36px; max-width: 220px; padding: 0 11px; }
+.composer-tools { align-items: center; display: flex; gap: 8px; max-width: calc(100% - 54px); min-width: 0; }
+.model-picker { flex: 0 1 220px; max-width: 220px; min-width: 0; position: relative; }
+.model-picker__trigger { align-items: center; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); cursor: pointer; display: flex; gap: 8px; height: 36px; max-width: 220px; padding: 0 11px; width: 100%; }
 .model-picker__trigger:hover, .model-picker.is-open .model-picker__trigger { background: var(--orange-faint); border-color: #e8bda5; }
 .model-picker__trigger:disabled { cursor: wait; opacity: 0.55; }
 .model-picker__trigger strong { font-size: 11px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -241,6 +236,13 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .model-picker__menu button small { color: var(--muted); font-size: 9px; }
 .model-picker__menu button > i { color: var(--orange); font-size: 12px; font-style: normal; opacity: 0; }
 .model-picker__menu button[aria-selected="true"] > i { opacity: 1; }
+.stream-speech-toggle { align-items: center; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--ink-soft); cursor: pointer; display: inline-flex; flex: 0 0 auto; gap: 7px; height: 36px; padding: 0 11px; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.stream-speech-toggle:hover { background: var(--orange-faint); border-color: #e8bda5; color: var(--orange-dark); }
+.stream-speech-toggle i { background: currentColor; display: block; height: 15px; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12'/%3E%3C/svg%3E") center / contain no-repeat; width: 15px; }
+.stream-speech-toggle span { font-size: 10px; font-weight: 630; white-space: nowrap; }
+.stream-speech-toggle.is-active { background: var(--orange-soft); border-color: #ecc5ae; color: var(--orange-dark); }
+.stream-speech-toggle.is-active i { animation: speech-pulse 1.2s ease-in-out infinite; }
+.stream-speech-toggle:disabled { cursor: not-allowed; opacity: 0.42; }
 .chat-composer button[type="submit"] { align-items: center; background: var(--orange); border: 0; border-radius: 12px; box-shadow: 0 8px 18px rgba(197, 78, 34, 0.2); color: #fff; cursor: pointer; display: flex; flex: 0 0 auto; font-size: 19px; height: 42px; justify-content: center; transition: background-color 150ms ease, transform 150ms ease; width: 42px; }
 .chat-composer button[type="submit"]:hover { background: var(--orange-dark); transform: translateY(-1px); }
 .chat-composer.is-sending button[type="submit"] { cursor: wait; opacity: 0.55; transform: none; }
@@ -264,7 +266,7 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 @keyframes cursor-blink { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
 @keyframes status-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(47, 155, 108, 0.25); } 50% { box-shadow: 0 0 0 5px rgba(47, 155, 108, 0); } }
 @keyframes processing-spin { to { transform: rotate(360deg); } }
-@keyframes speak-wave { 0%, 100% { transform: scaleY(0.6); } 50% { transform: scaleY(1); } }
+@keyframes speech-pulse { 0%, 100% { opacity: 0.62; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.06); } }
 
 @media (max-width: 1180px) {
   :root { --sidebar-width: 190px; }
@@ -325,6 +327,8 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
   .chat-message--user .chat-message__content { max-width: 92%; }
   .model-picker__trigger { max-width: 184px; }
   .model-picker__menu { width: min(258px, calc(100vw - 44px)); }
+  .stream-speech-toggle { justify-content: center; padding: 0; width: 36px; }
+  .stream-speech-toggle span { display: none; }
   .markdown-section .chat-composer > p { line-height: 1.45; }
   .markdown-section .agent-page h1 { font-size: clamp(3.4rem, 18vw, 5rem); }
 }
