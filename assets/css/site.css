@@ -251,6 +251,15 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .content::-webkit-scrollbar, .sidebar::-webkit-scrollbar, .chat-history__list::-webkit-scrollbar, .chat-messages::-webkit-scrollbar, .chat-reasoning__content::-webkit-scrollbar, .chat-message__content pre::-webkit-scrollbar, .chat-reasoning__content pre::-webkit-scrollbar, .markdown-table-scroll::-webkit-scrollbar, .chat-composer textarea::-webkit-scrollbar { height: 6px; width: 6px; }
 .content::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb, .chat-history__list::-webkit-scrollbar-thumb, .chat-messages::-webkit-scrollbar-thumb, .chat-reasoning__content::-webkit-scrollbar-thumb, .chat-message__content pre::-webkit-scrollbar-thumb, .chat-reasoning__content pre::-webkit-scrollbar-thumb, .markdown-table-scroll::-webkit-scrollbar-thumb, .chat-composer textarea::-webkit-scrollbar-thumb { background: #cdbcae; border-radius: 999px; }
 
+/* Navigation scrollbars stay quiet until the user interacts with the panel. */
+.sidebar, .chat-history__list { scrollbar-color: transparent transparent; scrollbar-gutter: auto; }
+.sidebar:hover, .sidebar:focus-within, .chat-history__list:hover, .chat-history__list:focus-within { scrollbar-color: rgba(156, 128, 109, 0.55) transparent; }
+.sidebar::-webkit-scrollbar, .chat-history__list::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track, .chat-history__list::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb, .chat-history__list::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+.sidebar:hover::-webkit-scrollbar-thumb, .sidebar:focus-within::-webkit-scrollbar-thumb, .chat-history__list:hover::-webkit-scrollbar-thumb, .chat-history__list:focus-within::-webkit-scrollbar-thumb { background: rgba(156, 128, 109, 0.55); }
+.sidebar::-webkit-scrollbar-thumb:hover, .chat-history__list::-webkit-scrollbar-thumb:hover { background: rgba(132, 96, 72, 0.78); }
+
 @keyframes intro-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cursor-blink { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
 @keyframes status-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(47, 155, 108, 0.25); } 50% { box-shadow: 0 0 0 5px rgba(47, 155, 108, 0); } }
