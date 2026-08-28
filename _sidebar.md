@@ -2,6 +2,8 @@
 - [Agent](ai/agent.md)
 - [RAG 知识库](ai/rag.md)
 - [AI 客服](ai/customer-service.md)
+- [AI 教师](ai/teacher.md)
+- [AI 自动化测试](ai/automation-testing.md)
 - [垂直模型训练](ai/model-training.md)
 - [蒸馏](ai/distillation.md)
 - [Skill 创建方法](ai/skill-creation.md)
