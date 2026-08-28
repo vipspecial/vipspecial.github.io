@@ -826,6 +826,35 @@
     })
   }
 
+  function bindAmbientPointer(element) {
+    var main = element.querySelector('.chat-main')
+    if (!main || !global.matchMedia || !global.matchMedia('(pointer: fine)').matches || global.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    var frame = 0
+    var pointerX = 0
+    var pointerY = 0
+
+    main.addEventListener('pointerenter', function () {
+      main.classList.add('has-ue-pointer')
+    })
+
+    main.addEventListener('pointermove', function (event) {
+      var rect = main.getBoundingClientRect()
+      pointerX = event.clientX - rect.left
+      pointerY = event.clientY - rect.top
+      if (frame) return
+      frame = global.requestAnimationFrame(function () {
+        main.style.setProperty('--ue-pointer-x', pointerX + 'px')
+        main.style.setProperty('--ue-pointer-y', pointerY + 'px')
+        frame = 0
+      })
+    })
+
+    main.addEventListener('pointerleave', function () {
+      main.classList.remove('has-ue-pointer')
+    })
+  }
+
   function mount(element) {
     mountedElement = element
     activeConversationId = null
@@ -833,6 +862,7 @@
     initSpeechVoices()
     element.innerHTML = shellMarkup()
     bindEvents(element)
+    bindAmbientPointer(element)
     syncSpeechToggle()
     element.querySelector('[data-model-select]').value = selectedModel
     syncModelPicker()
