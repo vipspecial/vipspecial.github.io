@@ -16,6 +16,8 @@
   var speechVoice = null
   var streamSpeechEnabled = global.localStorage.getItem(SPEECH_KEY) === 'true'
   var streamSpeechBuffer = ''
+  var sidebarScrollCleanup = null
+  var scrollbarAutoHideInitialized = false
 
   function pickChineseVoice() {
     if (!global.speechSynthesis) return null
@@ -855,6 +857,65 @@
     })
   }
 
+  function setupSidebarScrollHint() {
+    if (sidebarScrollCleanup) sidebarScrollCleanup()
+
+    var sidebar = document.querySelector('.sidebar')
+    var navigation = sidebar && sidebar.querySelector('.sidebar-nav')
+    if (!sidebar || !navigation) return
+
+    var hint = sidebar.querySelector('.sidebar-scroll-hint')
+    if (!hint) {
+      hint = document.createElement('span')
+      hint.className = 'sidebar-scroll-hint'
+      hint.setAttribute('aria-hidden', 'true')
+      hint.innerHTML = '<i>↓</i> 向下滚动查看更多'
+      sidebar.appendChild(hint)
+    }
+
+    function updateHint() {
+      var hasOverflow = navigation.scrollHeight > navigation.clientHeight + 4
+      var hasMoreBelow = navigation.scrollTop + navigation.clientHeight < navigation.scrollHeight - 4
+      sidebar.classList.toggle('has-sidebar-overflow', hasOverflow)
+      sidebar.classList.toggle('has-sidebar-more', hasOverflow && hasMoreBelow)
+    }
+
+    var resizeObserver = global.ResizeObserver ? new global.ResizeObserver(updateHint) : null
+    var mutationObserver = global.MutationObserver ? new global.MutationObserver(updateHint) : null
+    navigation.addEventListener('scroll', updateHint, { passive: true })
+    global.addEventListener('resize', updateHint)
+    if (resizeObserver) resizeObserver.observe(navigation)
+    if (mutationObserver) mutationObserver.observe(navigation, { childList: true, subtree: true, attributes: true })
+    global.requestAnimationFrame(updateHint)
+
+    sidebarScrollCleanup = function () {
+      navigation.removeEventListener('scroll', updateHint)
+      global.removeEventListener('resize', updateHint)
+      if (resizeObserver) resizeObserver.disconnect()
+      if (mutationObserver) mutationObserver.disconnect()
+    }
+  }
+
+  function setupAutoHideScrollbars() {
+    if (scrollbarAutoHideInitialized) return
+    scrollbarAutoHideInitialized = true
+
+    var selector = '.chat-history__list, .chat-messages, .chat-reasoning__content, .chat-message__content pre, .chat-reasoning__content pre, .markdown-table-scroll, .chat-composer textarea'
+    var timers = new WeakMap()
+
+    document.addEventListener('scroll', function (event) {
+      var target = event.target
+      if (!target || !target.matches || !target.matches(selector)) return
+
+      target.classList.add('is-scrolling')
+      if (timers.has(target)) global.clearTimeout(timers.get(target))
+      timers.set(target, global.setTimeout(function () {
+        target.classList.remove('is-scrolling')
+        timers.delete(target)
+      }, 760))
+    }, true)
+  }
+
   function mount(element) {
     mountedElement = element
     activeConversationId = null
@@ -872,6 +933,8 @@
 
   global.AiPortalPlugin = function (hook) {
     hook.doneEach(function () {
+      setupSidebarScrollHint()
+      setupAutoHideScrollbars()
       var element = document.querySelector('[data-chat-app]')
       document.body.classList.toggle('is-chat-route', Boolean(element))
       if (element) mount(element)

@@ -43,12 +43,13 @@ button:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visi
 .app-loading__mark::before { background: url("../../images/favicon-32x32.png") center / 30px no-repeat; content: ""; inset: 0; position: absolute; }
 
 /* Docsify application frame */
-.sidebar { background: linear-gradient(155deg, rgba(255, 253, 250, 0.97), rgba(255, 247, 241, 0.92)); border: 1px solid rgba(215, 192, 175, 0.96); border-radius: 24px; bottom: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(181, 140, 111, 0.12), 0 6px 0 rgba(208, 181, 160, 0.64), 0 22px 42px rgba(89, 58, 39, 0.13), 0 38px 76px rgba(89, 58, 39, 0.1); isolation: isolate; left: 14px; overflow-x: hidden; padding: 20px 13px 16px; top: 14px; transform: translateY(-2px); width: var(--sidebar-width); will-change: transform, box-shadow; }
-.sidebar::after { color: #b39f91; content: "ORANGE AI LAB"; display: block; font-family: var(--mono); font-size: 8px; letter-spacing: 0.16em; margin: 22px 12px 4px; }
-.sidebar .app-name { border-bottom: 1px solid var(--line); margin: 0 -13px 18px; padding: 0 17px 18px; text-align: left; }
+.sidebar { background: linear-gradient(155deg, rgba(255, 253, 250, 0.97), rgba(255, 247, 241, 0.92)); border: 1px solid rgba(215, 192, 175, 0.96); border-radius: 24px; bottom: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(181, 140, 111, 0.12), 0 6px 0 rgba(208, 181, 160, 0.64), 0 22px 42px rgba(89, 58, 39, 0.13), 0 38px 76px rgba(89, 58, 39, 0.1); display: flex; flex-direction: column; isolation: isolate; left: 14px; overflow: hidden; padding: 20px 13px 16px; top: 14px; transform: translateY(-2px); width: var(--sidebar-width); will-change: transform, box-shadow; }
+.sidebar::after { color: #b39f91; content: "ORANGE AI LAB"; display: block; flex: 0 0 auto; font-family: var(--mono); font-size: 8px; letter-spacing: 0.16em; margin: 16px 12px 4px; }
+.sidebar .app-name { border-bottom: 1px solid var(--line); flex: 0 0 auto; margin: 0 -13px 18px; padding: 0 17px 18px; text-align: left; }
 .sidebar .app-name a { align-items: center; color: var(--ink); display: flex; font-family: var(--display); font-size: 15px; font-weight: 710; gap: 9px; letter-spacing: -0.035em; line-height: 1.1; white-space: nowrap; }
 .sidebar .app-name a::before { animation: ue-brand-pulse 3.2s ease-in-out infinite; background: #fff4e9 url("../../images/favicon-32x32.png") center / 31px no-repeat; border: 1px solid #f1d8c7; border-radius: 13px; box-shadow: 0 7px 18px rgba(157, 86, 44, 0.12); content: ""; flex: 0 0 auto; height: 42px; width: 42px; }
 .sidebar .app-name a::after { color: var(--orange); content: "."; margin-left: -9px; }
+.sidebar-nav { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .sidebar-nav::before { color: #a98f7e; content: "工作台"; display: block; font-size: 10px; font-weight: 650; letter-spacing: 0.12em; margin: 0 12px 8px; }
 .sidebar-nav > ul > li { margin: 3px 0; }
 .sidebar-nav a, .sidebar-nav a:hover, .sidebar-nav a:focus { text-decoration: none !important; }
@@ -69,6 +70,9 @@ button:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visi
 .sidebar-nav > ul > li > ul { display: none; margin: 3px 0 7px; padding: 0 0 0 18px; }
 .sidebar-nav > ul > li.active > ul, .sidebar-nav > ul > li:has(> ul > li.active) > ul { display: block; }
 .sidebar-nav > ul > li > ul > li > a { color: var(--muted); font-size: 10px; min-height: 32px; padding: 7px 10px; }
+.sidebar-scroll-hint { align-items: flex-end; background: linear-gradient(to bottom, transparent, rgba(255, 249, 244, 0.98) 58%); bottom: 38px; color: var(--orange-dark); display: flex; font-size: 9px; font-weight: 650; gap: 6px; height: 58px; justify-content: center; left: 13px; letter-spacing: 0.02em; opacity: 0; padding-bottom: 8px; pointer-events: none; position: absolute; right: 13px; transform: translateY(7px); transition: opacity 180ms ease, transform 220ms var(--ease-out); z-index: 5; }
+.sidebar-scroll-hint i { align-items: center; background: var(--orange); border-radius: 50%; color: #fff; display: inline-flex; font-size: 10px; font-style: normal; height: 18px; justify-content: center; width: 18px; }
+.sidebar.has-sidebar-more .sidebar-scroll-hint { opacity: 1; transform: translateY(0); }
 .sidebar-toggle { align-items: center; appearance: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-soft); display: none; height: 44px; justify-content: center; max-height: 44px; max-width: 44px; min-height: 44px; min-width: 44px; overflow: hidden; padding: 0; width: 44px; }
 .sidebar-toggle-button { display: flex; flex-direction: column; gap: 4px; height: auto; width: 18px; }
 .sidebar-toggle-button span, .sidebar-toggle span { background: var(--orange); border-radius: 999px; display: block; height: 2px; margin: 0; transform: none; width: 18px; }
@@ -309,14 +313,16 @@ body.is-chat-route .site-footer, body.is-chat-route .github-corner { display: no
 .content::-webkit-scrollbar-thumb { background: #cdbcae; border-radius: 999px; }
 
 /* The navigation still scrolls with the wheel, but the rail stays invisible. */
-.sidebar { -ms-overflow-style: none; scrollbar-width: none; }
-.sidebar::-webkit-scrollbar { display: none; height: 0; width: 0; }
+.sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
+.sidebar-nav::-webkit-scrollbar { display: none; height: 0; width: 0; }
 
 /* Chat scrollbars use a low-contrast orange that strengthens on interaction. */
-.chat-history__list, .chat-messages, .chat-reasoning__content, .chat-message__content pre, .chat-reasoning__content pre, .markdown-table-scroll, .chat-composer textarea { scrollbar-color: rgba(229, 107, 62, 0.32) transparent; scrollbar-gutter: auto; scrollbar-width: thin; }
+.chat-history__list, .chat-messages, .chat-reasoning__content, .chat-message__content pre, .chat-reasoning__content pre, .markdown-table-scroll, .chat-composer textarea { scrollbar-color: transparent transparent; scrollbar-gutter: auto; scrollbar-width: thin; }
 .chat-history__list::-webkit-scrollbar, .chat-messages::-webkit-scrollbar, .chat-reasoning__content::-webkit-scrollbar, .chat-message__content pre::-webkit-scrollbar, .chat-reasoning__content pre::-webkit-scrollbar, .markdown-table-scroll::-webkit-scrollbar, .chat-composer textarea::-webkit-scrollbar { height: 7px; width: 7px; }
 .chat-history__list::-webkit-scrollbar-track, .chat-messages::-webkit-scrollbar-track, .chat-reasoning__content::-webkit-scrollbar-track, .chat-message__content pre::-webkit-scrollbar-track, .chat-reasoning__content pre::-webkit-scrollbar-track, .markdown-table-scroll::-webkit-scrollbar-track, .chat-composer textarea::-webkit-scrollbar-track { background: transparent; }
-.chat-history__list::-webkit-scrollbar-thumb, .chat-messages::-webkit-scrollbar-thumb, .chat-reasoning__content::-webkit-scrollbar-thumb, .chat-message__content pre::-webkit-scrollbar-thumb, .chat-reasoning__content pre::-webkit-scrollbar-thumb, .markdown-table-scroll::-webkit-scrollbar-thumb, .chat-composer textarea::-webkit-scrollbar-thumb { background: rgba(229, 107, 62, 0.28); background-clip: padding-box; border: 2px solid transparent; border-radius: 999px; min-height: 42px; }
+.chat-history__list::-webkit-scrollbar-thumb, .chat-messages::-webkit-scrollbar-thumb, .chat-reasoning__content::-webkit-scrollbar-thumb, .chat-message__content pre::-webkit-scrollbar-thumb, .chat-reasoning__content pre::-webkit-scrollbar-thumb, .markdown-table-scroll::-webkit-scrollbar-thumb, .chat-composer textarea::-webkit-scrollbar-thumb { background: transparent; background-clip: padding-box; border: 2px solid transparent; border-radius: 999px; min-height: 42px; }
+.chat-history__list.is-scrolling, .chat-messages.is-scrolling, .chat-reasoning__content.is-scrolling, .chat-message__content pre.is-scrolling, .chat-reasoning__content pre.is-scrolling, .markdown-table-scroll.is-scrolling, .chat-composer textarea.is-scrolling { scrollbar-color: rgba(229, 107, 62, 0.34) transparent; }
+.chat-history__list.is-scrolling::-webkit-scrollbar-thumb, .chat-messages.is-scrolling::-webkit-scrollbar-thumb, .chat-reasoning__content.is-scrolling::-webkit-scrollbar-thumb, .chat-message__content pre.is-scrolling::-webkit-scrollbar-thumb, .chat-reasoning__content pre.is-scrolling::-webkit-scrollbar-thumb, .markdown-table-scroll.is-scrolling::-webkit-scrollbar-thumb, .chat-composer textarea.is-scrolling::-webkit-scrollbar-thumb { background: rgba(229, 107, 62, 0.3); background-clip: padding-box; }
 .chat-history__list::-webkit-scrollbar-thumb:hover, .chat-messages::-webkit-scrollbar-thumb:hover, .chat-reasoning__content::-webkit-scrollbar-thumb:hover, .chat-message__content pre::-webkit-scrollbar-thumb:hover, .chat-reasoning__content pre::-webkit-scrollbar-thumb:hover, .markdown-table-scroll::-webkit-scrollbar-thumb:hover, .chat-composer textarea::-webkit-scrollbar-thumb:hover { background: rgba(213, 89, 43, 0.58); background-clip: padding-box; }
 
 @keyframes intro-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
