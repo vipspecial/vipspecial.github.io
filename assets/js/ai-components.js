@@ -896,6 +896,54 @@
     }
   }
 
+  function setupBrandTyping() {
+    var link = document.querySelector('.sidebar .app-name a')
+    if (!link || link.querySelector('.brand-typing')) return
+
+    var label = link.textContent.trim().replace(/\.+$/, '') + '.'
+    var wrapper = document.createElement('span')
+    var text = document.createElement('span')
+    var caret = document.createElement('i')
+
+    wrapper.className = 'brand-typing'
+    text.className = 'brand-typing__text'
+    caret.className = 'brand-typing__caret'
+    caret.setAttribute('aria-hidden', 'true')
+    wrapper.appendChild(text)
+    wrapper.appendChild(caret)
+
+    Array.from(link.childNodes).forEach(function (node) {
+      if (node.nodeType === 3) link.removeChild(node)
+    })
+    link.setAttribute('aria-label', label)
+    link.appendChild(wrapper)
+
+    if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      text.textContent = label
+      wrapper.classList.add('is-static')
+      return
+    }
+
+    var index = 0
+    function typeNextCharacter() {
+      if (!document.documentElement.contains(wrapper)) return
+      if (index < label.length) {
+        index += 1
+        text.textContent = label.slice(0, index)
+        global.setTimeout(typeNextCharacter, 115)
+        return
+      }
+      global.setTimeout(function () {
+        if (!document.documentElement.contains(wrapper)) return
+        text.textContent = ''
+        index = 0
+        global.setTimeout(typeNextCharacter, 1400)
+      }, 10000)
+    }
+
+    global.setTimeout(typeNextCharacter, 450)
+  }
+
   function setupAutoHideScrollbars() {
     if (scrollbarAutoHideInitialized) return
     scrollbarAutoHideInitialized = true
@@ -933,6 +981,7 @@
 
   global.AiPortalPlugin = function (hook) {
     hook.doneEach(function () {
+      setupBrandTyping()
       setupSidebarScrollHint()
       setupAutoHideScrollbars()
       var element = document.querySelector('[data-chat-app]')
